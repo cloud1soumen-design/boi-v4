@@ -662,7 +662,7 @@ async function gemTr(list,max){
 }
 const isNetErr=e=>!!e&&e.status===undefined&&(e.net||e.name==='TypeError'||/Failed to fetch|NetworkError|Load failed|network request/i.test(String(e.message||'')));
 const isRetryErr=e=>!!e&&(isNetErr(e)||e.name==='AbortError'||e.status>=500);
-let trRun=0,retryN=0,nextRetry=0,netHint=false;
+let trRun=0,retryN=0,nextRetry=0,netHint=false,lastErr=null;
 function gerr(e){
  const n=provName();
  if(isRetryErr(e))netHint=true;
@@ -760,7 +760,7 @@ async function hybridAI(blks,my){
   if(my!==tok)return;
   sel.forEach((b,k)=>{if(res[k]!=null)applyAI(b,res[k]);else b.dataset.noau='1'});
   setSt('✓ Google + AI ('+provName()+') — ✨ চিহ্নিত অংশ AI-র করা');
- }catch(e){lastAiState='fail';if(my===tok){setSt('✓ Google · AI-র উন্নতি আসেনি: '+gerr(e).replace(' এখন Google Translate চলছে।','').replace(' Google Translate দিয়ে চলছে।',''));suggestGpt()}}
+ }catch(e){lastAiState='fail';sel.forEach(b=>{b.dataset.noau='1'});if(my===tok){setSt('✓ Google · AI-র উন্নতি আসেনি: '+gerr(e).replace(' এখন Google Translate চলছে।','').replace(' Google Translate দিয়ে চলছে।',''));suggestGpt()}}
 }
 async function translateAll(){
  trRun++;netHint=false;
@@ -770,18 +770,18 @@ async function translateAll(){
 async function translateAll0(){
  const my=++tok,seen=new Set();let aiFailed=false;useCnt={};aheadTok++;lastAiState=llmOn()?'done':(aiBlocked()?'fail':'off');
  let blks=[...view.querySelectorAll('.blk')];
- for(const b of blks){b.querySelector('.tr').textContent='';b.querySelector('.tr').classList.remove('ai');b.querySelectorAll('.il').forEach(n=>n.remove());b.classList.remove('done','show','il-has')}
+ for(const b of blks){b.querySelector('.tr').textContent='';b.querySelector('.tr').classList.remove('ai');b.querySelectorAll('.il').forEach(n=>n.remove());b.classList.remove('done','show','il-has');b.dataset.noau='';b.dataset.au=''}
  if(await applyPageLock(blks)){lastAiFor={key,pos};setSt('🔒 পাতা লক করা: নতুন অনুবাদ হয়নি (ডেটা ও কোটা বাঁচল)');showTally();aheadPump();setTimeout(syncPage,800);return}
  {const rest=[];for(const b of blks){const tx=b.querySelector('.o').textContent,lk=await pget('lk:'+hk(tx));if(lk&&lk.t){const d=b.querySelector('.tr');d.textContent=lk.t;fin(d,b)}else{const m=await pget('mp:'+hk(tx));if(m!=null){const d=b.querySelector('.tr');d.textContent=m;d.classList.add('ai');fin(d,b)}else{const au=await pget('au:'+hk(tx));if(au&&au.h!=null&&(au.gv===gver||!termHits(tx).length)){const d=b.querySelector('.tr');d.innerHTML=au.h;d.classList.toggle('ai',!!au.ai);b.dataset.au='1';fin(d,b)}else rest.push(b)}}}blks=rest}
  if(llmOn()&&!hy){
   const nm=provName();setSt('⏳ AI অনুবাদ হচ্ছে ('+nm+')…');
   try{await gemAll(blks,my);if(my===tok){lastAiFor={key,pos};setSt('✓ AI অনুবাদ ('+nm+')');showTally();aheadPump();setTimeout(syncPage,800)}return}
-  catch(e){const why=gerr(e)+' ['+(e.status||e.message||'?')+']';setSt('⚠ '+why);toast(why,8000);aiFailed=true;lastAiState='fail';for(const b of blks){b.querySelector('.tr').textContent='';b.classList.remove('done')}}
+  catch(e){lastErr=e;const why=gerr(e)+' ['+(e.status||e.message||'?')+']';setSt('⚠ '+why);toast(why,8000);aiFailed=true;lastAiState='fail';for(const b of blks){const c=await pget(pk(b.querySelector('.o').textContent));if(c!=null&&my===tok)applyAI(b,c);else{b.querySelector('.tr').textContent='';b.classList.remove('done')}}blks=blks.filter(b=>!b.classList.contains('done'))}
  }else setSt(llmOn()?'⏳ Google দিয়ে দ্রুত অনুবাদ হচ্ছে… (কঠিন অংশ পরে AI দেখবে)':aiBlocked()?'⏸ AI-র ফ্রি কোটা এখন শেষ (চালু হবে '+new Date(qUntil).toLocaleString([],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'), এখন Google Translate চলছে':'Google Translate (AI বন্ধ — 🧠-তে চালু করুন)');
  for(let i=0;i<blks.length&&my===tok;i+=3){
   await Promise.all(blks.slice(i,i+3).map(async b=>{
    const d=b.querySelector('.tr');
-   try{const h=await trPara(b.querySelector('.o').textContent,seen);if(my===tok){b._h=h;d.innerHTML=h;fin(d,b)}}
+   try{const h=await trPara(b.querySelector('.o').textContent,seen);if(my===tok){b._h=h;d.innerHTML=h;if(aiFailed&&isRetryErr(lastErr))b.dataset.noau='1';fin(d,b)}}
    catch(e){if(my===tok)d.textContent='⚠ অনুবাদ হয়নি (ইন্টারনেট দেখুন)'}
   }));
  }
@@ -2003,9 +2003,9 @@ function cjUi(t,show){const p=$('#pbar');if(!p)return;if(show){p.style.display='
 const fmtT=ms=>new Date(ms).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 // ১) অনুবাদ হয়ে গেলে প্রতিটি অনুচ্ছেদ নিজে থেকে লক — আর Google/AI চেষ্টা করবে না
 async function lockParas(blks){
- if(RS.autolock===false||!book||netHint||trRun>0)return;
+ if(RS.autolock===false||!book||trRun>0)return;
  for(const b of blks){
-  if(b.dataset.au||b.dataset.sy==='1'||!b.classList.contains('done'))continue;
+  if(b.dataset.au||b.dataset.noau||b.dataset.sy==='1'||!b.classList.contains('done'))continue;
   const d=b.querySelector('.tr'),tx=b.querySelector('.o').textContent,h0=hk(tx);
   if(/⚠ অনুবাদ হয়নি/.test(d.textContent))continue;
   const lk=await pget('lk:'+h0);if(lk&&lk.t)continue;

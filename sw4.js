@@ -1,4 +1,4 @@
-const V='brd4-v2',FILES=['v4.html','manifest4.json','icon4-192.png','icon4-512.png'];
+const V='brd4-v3',FILES=['v4.html','manifest4.json','icon4-192.png','icon4-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V&&k.startsWith('brd4-')).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{
