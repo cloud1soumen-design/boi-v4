@@ -1211,8 +1211,8 @@ $('#bGl').onclick=()=>{
  +'<div style="margin-top:8px"><b>📜 অনুবাদের নির্দেশনা (AI-কে দেওয়া প্রম্পট)</b><br>Gemini, Claude ও ChatGPT-র সব অনুবাদে এটা যোগ হয়। Google Translate-এ প্রম্পট দেওয়া যায় না, সেখানে নিচের প্রিসেট পরিভাষা কাজ করে।</div>'
  +'<textarea class="gi" id="cust" rows="8"></textarea>'
  +'<button id="custd">ডিফল্ট (দর্শন) ফিরিয়ে আনুন</button> <button id="custc">খালি করুন</button> <button id="presetb">🕉 দর্শন পরিভাষা প্রিসেট যোগ</button>'
- +'<div style="margin-top:8px"><b>🌐 অনলাইন শব্দকোষ (English = বাংলা)</b><br>যেকোনো খোলা লিংকের .txt / .csv / .json ফাইল দিন, যেখানে প্রতি লাইনে <code>English = বাংলা</code> লেখা। অ্যাপ থেকে এটা এনে শব্দভান্ডারে মিলিয়ে নেবে, সপ্তাহে একবার নিজে হালনাগাদ করবে। নিজের repository-তে <code>glossary-v3.txt</code> তুললে শুধু <code>glossary-v3.txt</code> লিখলেই চলবে।</div>'
- +'<input class="gi" id="glu" placeholder="শব্দকোষের লিংক (যেমন glossary-v3.txt); একাধিক হলে কমা দিয়ে">'
+ +'<div style="margin-top:8px"><b>🌐 অনলাইন শব্দকোষ (English = বাংলা)</b><br>যেকোনো খোলা লিংকের .txt / .csv / .json ফাইল দিন, যেখানে প্রতি লাইনে <code>English = বাংলা</code> লেখা। অ্যাপ থেকে এটা এনে শব্দভান্ডারে মিলিয়ে নেবে, অ্যাপ খুললে (দিনে একবার) নিজে থেকে হালনাগাদ হবে। নিজের repository-তে <code>my-glossary.txt</code> তুললে শুধু <code>my-glossary.txt</code> লিখলেই চলবে।</div>'
+ +'<input class="gi" id="glu" placeholder="শব্দকোষের লিংক (যেমন my-glossary.txt); একাধিক হলে কমা দিয়ে">'
  +'<button id="glf">🌐 এখনই আনুন</button> <span id="glm" style="font-size:13px"></span>'
  +'<div style="margin-top:8px"><b>💬 ChatGPT সেটিং</b></div>'
  +'<select class="gi" id="gmode"><option value="web">ChatGPT খুলবে: ব্রাউজারে</option><option value="app">ChatGPT খুলবে: ChatGPT অ্যাপে (Android)</option></select>'
@@ -2034,7 +2034,7 @@ function retryTick(){
  }else if(!navigator.onLine&&pageNeedsRetry()){
   setSt('📡 ইন্টারনেট নেই — সংযোগ এলেই নিজে থেকে আবার চেষ্টা করবে');
  }
- cjResume();
+ cjResume();glAuto();
 }
 function cjResume(){
  const j=cjGet();if(!j||chapBusy||preBusy||!book)return;
@@ -2158,7 +2158,7 @@ function openBulk(){
  <label style="display:block;margin:5px 0"><input type="checkbox" id="bkb" checked> বাংলার পাশে বন্ধনীতে ইংরেজি দেখাও</label>
  <label style="display:block;margin:5px 0"><input type="checkbox" id="bkr" checked> ✔ আমি যাচাই করেছি (পর্যালোচনা বাকি নয়)</label>
  <button class="p" id="bka">যোগ করুন</button> <button id="bkd">📥 খালি টেমপ্লেট নামান</button> <button id="bkc">বাতিল</button><div id="bks" style="margin-top:6px;font-size:13px"></div>
- <div style="font-size:12px;color:var(--mut);margin-top:8px;line-height:1.6">নিজের ফাইল থেকে নিতে চাইলে: টেমপ্লেট নামিয়ে ভরে GitHub repository-তে (যেমন my-glossary.txt নামে) তুলুন, তারপর সেটিংসের শব্দকোষ-লিংক ঘরে <b>glossary-v3.txt, my-glossary.txt</b> এভাবে কমা দিয়ে লিখে আনুন।</div>`;
+ <div style="font-size:12px;color:var(--mut);margin-top:8px;line-height:1.6">নিজের ফাইল থেকে নিতে চাইলে: টেমপ্লেট নামিয়ে ভরে GitHub repository-তে (যেমন my-glossary.txt নামে) তুলুন, তারপর সেটিংসের শব্দকোষ-লিংক ঘরে <b>my-glossary.txt, my-glossary2.txt</b> এভাবে কমা দিয়ে লিখে আনুন।</div>`;
  $('#bkc').onclick=()=>openGL();
  $('#bkd').onclick=()=>{dl('my-glossary.txt',GL_TEMPLATE);$('#bks').textContent='✅ my-glossary.txt নামছে'};
  $('#bka').onclick=()=>{
@@ -2190,7 +2190,7 @@ function wzSave(n){
 function showWiz(n){
  n=n||1;sheet.style.display='flex';let b='';
  if(n===1)b=`<b>১. ফ্রি AI (Gemini) চালু করা</b><div style="margin:6px 0">১) <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--ac)">aistudio.google.com/apikey</a> খুলে Google অ্যাকাউন্টে লগইন করুন, <b>Create API key</b> চাপুন।<br>২) লম্বা key-টা কপি করে নিচে পেস্ট করুন।<br>৩) <b>পরীক্ষা করুন</b> চাপুন, ✅ এলে ঠিক আছে।</div><input class="gi" id="wk" type="password" placeholder="Gemini API key" autocomplete="off"><button id="wkt">🔌 পরীক্ষা করুন</button><div id="wkr" style="margin-top:6px;white-space:pre-wrap"></div><div style="font-size:13px;color:var(--mut);margin-top:6px">key না থাকলে বাদ দিন, তখন শুধু Google Translate চলবে।</div>`;
- if(n===2)b=`<b>২. শব্দকোষ (দর্শনের পরিভাষা)</b><div style="margin:6px 0">repository-তে <code>glossary-v3.txt</code> তোলা থাকলে নিচের ঘরে ওটাই রেখে <b>আনুন</b> চাপুন। বৌদ্ধ ও বেদান্তের প্রায় ৯৫টি পরিভাষা শব্দকোষে চলে আসবে, এগুলো Google, Gemini ও ChatGPT কেউ বদলাতে পারবে না। অন্য লিংকও (.txt/.csv/.json) দিতে পারেন।</div><input class="gi" id="wgu" placeholder="শব্দকোষের লিংক"><button id="wgf">🌐 আনুন</button><div id="wgr" style="margin-top:6px"></div>`;
+ if(n===2)b=`<b>২. শব্দকোষ (দর্শনের পরিভাষা)</b><div style="margin:6px 0">repository-তে <code>my-glossary.txt</code> তোলা থাকলে নিচের ঘরে ওটাই রেখে <b>আনুন</b> চাপুন। বৌদ্ধ ও বেদান্তের প্রায় ৯৫টি পরিভাষা শব্দকোষে চলে আসবে, এগুলো Google, Gemini ও ChatGPT কেউ বদলাতে পারবে না। অন্য লিংকও (.txt/.csv/.json) দিতে পারেন।</div><input class="gi" id="wgu" placeholder="শব্দকোষের লিংক"><button id="wgf">🌐 আনুন</button><div id="wgr" style="margin-top:6px"></div>`;
  if(n===3)b=`<b>৩. ChatGPT-র জন্য নির্দেশনা (একবারই)</b><div style="margin:6px 0">১) নিচে <b>কপি করুন</b> চাপুন।<br>২) ChatGPT খুলে <b>Settings → Personalization → Custom instructions</b>-এ পেস্ট করে সেভ করুন (মেনুর নাম কিছুটা আলাদা হতে পারে)।<br>এরপর প্রতিবার ছোট প্রম্পটেই কাজ হবে।</div><textarea class="gi" id="wct" rows="5" readonly></textarea><button id="wcc">📋 কপি করুন</button><select class="gi" id="wgm"><option value="web">ChatGPT খুলবে: ব্রাউজারে</option><option value="app">ChatGPT খুলবে: ChatGPT অ্যাপে (Android)</option></select>`;
  if(n===4)b=`<b>৪. অনুবাদের ধরন</b><div style="margin:6px 0"><b id="whl"></b><input type="range" id="whp" min="0" max="100" step="5" style="width:100%"><span style="font-size:13px;color:var(--mut)">AI কত অংশে কাজ করবে। শুরুতে ২০-৩০% ভালো, কোটা বেশি থাকলে বাড়ান।</span></div><select class="gi" id="wrg"><option value="wb">বাংলা: পশ্চিমবঙ্গ (জল, স্নান…)</option><option value="bd">বাংলা: বাংলাদেশ (পানি, গোসল…)</option><option value="n">বাংলা: নিরপেক্ষ</option></select><label style="display:block;margin:6px 0"><input type="checkbox" id="wne"> আমি ইংরেজি জানি না (টার্ম বাংলা অক্ষরে, বন্ধনীতে ইংরেজি)</label>`;
  if(n===5)b=`<b>৫. প্রস্তুত! 🎉</b><div style="margin:6px 0;line-height:1.7">ওপরের 📂 দিয়ে একটা বই খুলুন, প্রথমে ছোট বই বা কয়েক পাতা দিয়ে পরীক্ষা করুন।<br>• শব্দে ট্যাপ করলে বইয়ের ইংরেজি শব্দ আসে, ➕ দিয়ে শব্দকোষে রাখুন।<br>• "মূল" বোতাম: কিছু সিলেক্ট করে চাপলে শুধু সেই বাক্যের মূল।<br>• 💬 GPT: ChatGPT-তে পাঠান, উত্তর কপি করে ফিরলে নিজে বসবে।<br>• ⬇ অফলাইন: আপনার বর্তমান পাতা থেকে ডাউনলোড।<br>• 🧠 সেটিং: সব বদলানো যায়। এই গাইড আবার: 🧠 → 🧭 সেটআপ গাইড।</div>`;
@@ -2202,7 +2202,7 @@ function showWiz(n){
   try{await gem('Reply with JSON {"ok":true}',20000);r.textContent='✅ Gemini ঠিকমতো কাজ করছে'}
   catch(e){r.textContent='❌ সমস্যা: কোড '+(e.status||e.name||'নেটওয়ার্ক')+(e.msg?'\n'+e.msg:'')}
  }}
- if(n===2){$('#wgu').value=glu||'glossary-v3.txt';$('#wgf').onclick=async()=>{
+ if(n===2){$('#wgu').value=glu||'my-glossary.txt';$('#wgf').onclick=async()=>{
   const u=$('#wgu').value.trim(),r=$('#wgr');
   if(!u){r.textContent='আগে লিংক দিন';return}
   r.textContent='⏳ আনা হচ্ছে…';
@@ -2219,6 +2219,13 @@ if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.s
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 showLib();applyRS();
 if(ls.get('wzdone')!=='1'&&!gk)setTimeout(()=>showWiz(1),700);
-if(glu&&navigator.onLine&&Date.now()-glt>7*864e5)loadGlossMany(glu).then(r=>{if(r.add||r.upd)toast('অনলাইন শব্দকোষ হালনাগাদ: '+r.add+'টি নতুন',4000)}).catch(()=>{});
+let glTry=0;
+function glAuto(){
+ if(!glu||!navigator.onLine||Date.now()-glt<864e5||Date.now()-glTry<36e5)return;
+ glTry=Date.now();
+ loadGlossMany(glu).then(r=>{if(r.add||r.upd)toast('🌐 শব্দকোষ হালনাগাদ: '+r.add+'টি নতুন, '+r.upd+'টি বদলেছে',5000)}).catch(e=>toast('⚠ অনলাইন শব্দকোষ আনা যায়নি — ফাইলের নাম/লিংক দেখুন',5000));
+}
+if(!glu){glu='my-glossary.txt';ls.set('glu',glu)}
+glAuto();
 </script>
 </body></html>
