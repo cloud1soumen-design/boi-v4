@@ -48,7 +48,7 @@ label.b{position:relative;overflow:hidden}
  <span class="sp"></span><button id="sm">Aa</button><button id="lg">☰</button>
 </header>
 <div id="st"></div><div id="tl"></div><div id="ah"></div><div id="gbar"><span id="gtxt">ChatGPT-র উত্তর কপি করেছেন?</span><span><button class="p" id="gsend">💬 ChatGPT-তে পাঠান</button><button id="gcopy">📋 প্রম্পট কপি</button> <a id="gapp" class="gl" href="#">📱 অ্যাপ খুলুন</a> <a id="gweb" class="gl" href="#" target="_blank" rel="noopener">🌐 ব্রাউজারে</a> <button class="p" id="gpaste">📥 পেস্ট করে সেভ</button> <button id="gx">✕</button></span></div><div id="pbar"><span id="pbt"></span><button id="pbx">থামান</button></div>
-<div id="view"><div class="hello">📖<br>ফোন থেকে PDF বা EPUB বই খুলুন।<br>প্রতিটি অনুচ্ছেদের নিচে নিজে থেকেই বাংলা অনুবাদ আসবে।<br>শুধু বাংলা দেখাবে। কোথাও বুঝতে অসুবিধা হলে সেই শব্দে ট্যাপ করুন, ইংরেজিটা পাশে চলে আসবে। পুরো অনুচ্ছেদে ট্যাপ করলে মূল লেখা আসবে।</div></div>
+<div id="view"><div class="hello">📖<br>ফোন থেকে PDF, EPUB বা MOBI বই খুলুন।<br>প্রতিটি অনুচ্ছেদের নিচে নিজে থেকেই বাংলা অনুবাদ আসবে।<br>শুধু বাংলা দেখাবে। কোথাও বুঝতে অসুবিধা হলে সেই শব্দে ট্যাপ করুন, ইংরেজিটা পাশে চলে আসবে। পুরো অনুচ্ছেদে ট্যাপ করলে মূল লেখা আসবে।</div></div>
 <div id="sheet"><div id="sh"><span>বন্ধ করতে ✕ চাপুন</span><button id="x">✕</button></div><div id="out"></div></div>
 <div id="bar">
  <button id="bAuto" class="p" disabled>⇄ অনুবাদ চালু</button>
@@ -139,7 +139,7 @@ async function openPdf(buf){
   return r.map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
  }};
 }
-async function openEpub(buf){
+async function openEpubRaw(buf){
  const z=await JSZip.loadAsync(buf);
  const rd=async p=>{const f=z.file(p);return f?f.async('string'):null};
  const X=s=>new DOMParser().parseFromString(s,'application/xml');
@@ -177,20 +177,119 @@ async function openEpub(buf){
  }};
 }
 
+// ===== v4.5: MOBI সমর্থন + EPUB/MOBI পাতা-ভিত্তিক (PDF-এর মতো) =====
+const PAGE_CH=3000;
+function packPieces(p,max){
+ if(p.length<=max*2)return[p];
+ const out=[];let cur='';
+ for(const s of (p.match(/[^.!?।]+[.!?।]*\s*/g)||[p])){if(cur&&cur.length+s.length>max){out.push(cur.trim());cur=s}else cur+=s}
+ if(cur.trim())out.push(cur.trim());return out;
+}
+function pagedBook(chs,mkToc){
+ const pages=[],startPage=[],headPages=[];
+ let cur=[],n=0;
+ const flush=()=>{if(cur.length){pages.push(cur);cur=[];n=0}};
+ chs.forEach(ch=>{
+  startPage.push(pages.length);
+  const hmap={};(ch.heads||[]).forEach(h=>{hmap[h.i]=h});
+  ch.paras.forEach((p,pi)=>{
+   packPieces(p,PAGE_CH).forEach((pc,k)=>{
+    if(n&&n+pc.length>PAGE_CH)flush();
+    if(k===0&&hmap[pi])headPages.push({t:hmap[pi].t,i:pages.length,l:hmap[pi].l});
+    cur.push(pc);n+=pc.length;
+   });
+  });
+  if(n>=800)flush();
+ });
+ flush();
+ if(!pages.length)pages.push([]);
+ return{n:pages.length,async toc(){return mkToc?await mkToc(startPage,headPages):headPages},async get(i){return pages[i]||[]}};
+}
+async function openEpub(buf){
+ const raw=await openEpubRaw(buf);
+ const chs=[];
+ for(let i=0;i<raw.n;i++){let a=[];try{a=await raw.get(i)}catch(e){}chs.push({paras:a,heads:[]})}
+ return pagedBook(chs,async(sp,hp)=>{
+  let t0=[];try{t0=await raw.toc()}catch(e){}
+  if(!t0.length)return hp;
+  return t0.map(x=>({t:x.t,i:(x.i!=null&&x.i>=0&&x.i<sp.length)?sp[x.i]:x.i,l:x.l}));
+ });
+}
+function palmDecomp(s){
+ let out=new Uint8Array(Math.max(4096,s.length*4)),n=0,i=0;
+ const ens=k=>{if(n+k>out.length){const t=new Uint8Array(Math.max(out.length*2,n+k));t.set(out.subarray(0,n));out=t}};
+ while(i<s.length){
+  const c=s[i++];
+  if(c===0||(c>=9&&c<=0x7f)){ens(1);out[n++]=c}
+  else if(c<=8){ens(c);for(let k=0;k<c&&i<s.length;k++)out[n++]=s[i++]}
+  else if(c>=0xC0){ens(2);out[n++]=32;out[n++]=c^0x80}
+  else{const c2=(c<<8)|(s[i++]||0),d=(c2>>3)&0x7FF,l=(c2&7)+3;ens(l);if(d>0&&d<=n){for(let k=0;k<l;k++){out[n]=out[n-d];n++}}}
+ }
+ return out.subarray(0,n);
+}
+function htmlToChapter(html,brSplit){
+ const doc=new DOMParser().parseFromString(html,'text/html');
+ doc.querySelectorAll('script,style,head,svg,img').forEach(e=>e.remove());
+ doc.querySelectorAll('br').forEach(b=>b.replaceWith(brSplit?'\n':' '));
+ const B='h1,h2,h3,h4,h5,h6,p,li,blockquote,div,pre,dd,dt,td';
+ const paras=[],heads=[];
+ const add=(el,txt)=>{
+  const parts=txt.split(/\n+/).map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
+  const m=el&&/^H([1-3])$/.exec(el.tagName);
+  parts.forEach((s,k)=>{if(m&&k===0)heads.push({i:paras.length,l:+m[1]-1,t:s});paras.push(s)});
+ };
+ [...doc.body.querySelectorAll(B)].filter(e=>!e.querySelector(B)).forEach(e=>add(e,e.textContent));
+ if(!paras.length)add(null,doc.body.textContent||'');
+ return{paras,heads};
+}
+async function openMobi(buf){
+ const u=new Uint8Array(buf),dv=new DataView(buf);
+ const nrec=dv.getUint16(76);
+ if(nrec<2)throw new Error('BAD');
+ const off=[];for(let i=0;i<nrec;i++)off.push(dv.getUint32(78+i*8));
+ off.push(u.length);
+ const r0=off[0],comp=dv.getUint16(r0),nText=dv.getUint16(r0+8),enc=dv.getUint16(r0+12);
+ if(enc!==0)throw new Error('DRM');
+ if(comp===17480)throw new Error('HUFF');
+ let tenc=65001,flags=0;
+ if(String.fromCharCode(u[r0+16],u[r0+17],u[r0+18],u[r0+19])==='MOBI'){
+  const mlen=dv.getUint32(r0+20);tenc=dv.getUint32(r0+28);
+  if(mlen>=0xE4&&r0+0xF4<=u.length)flags=dv.getUint16(r0+0xF2);
+ }
+ const chunks=[];let tot=0;
+ for(let i=1;i<=nText&&i<nrec;i++){
+  let rec=u.subarray(off[i],off[i+1]),num=0,f=flags>>1;
+  while(f){
+   if(f&1){let bp=0,res=0,ps=rec.length-num;while(ps>0){const v=rec[ps-1];res|=(v&0x7F)<<bp;bp+=7;ps--;if((v&0x80)||bp>=28)break}num+=res}
+   f>>=1;
+  }
+  if(flags&1&&rec.length-num>0)num+=(rec[rec.length-num-1]&3)+1;
+  rec=rec.subarray(0,Math.max(0,rec.length-num));
+  const d=comp===2?palmDecomp(rec):rec;chunks.push(d);tot+=d.length;
+ }
+ const all=new Uint8Array(tot);let p=0;chunks.forEach(c=>{all.set(c,p);p+=c.length});
+ const html=new TextDecoder(tenc===65001?'utf-8':'windows-1252').decode(all);
+ const chs=html.split(/<mbp:pagebreak\s*\/?>/i).map(h=>htmlToChapter(h,true)).filter(c=>c.paras.length);
+ if(!chs.length)throw new Error('EMPTY');
+ return pagedBook(chs,null);
+}
+
 const lib=()=>{try{return JSON.parse(ls.get('lib')||'[]')}catch(e){return[]}};
 async function openBuf(name,size,buf,save){
  view.className='';view.innerHTML='<div class="hello">লোড হচ্ছে…</div>';
- const k='pos:'+name+size;
+ const isEpub=/\.epub$/i.test(name),isMobi=!isEpub&&(/\.(mobi|azw3?|prc)$/i.test(name)||(buf.byteLength>68&&String.fromCharCode(...new Uint8Array(buf,60,8))==='BOOKMOBI'));
+ const k='pos:'+name+size+((isEpub||isMobi)?'#pg':'');
  try{
-  if(save){kvSet('bk:'+k,buf);const l=lib().filter(x=>x.k!==k);l.unshift({k,name,size});ls.set('lib',JSON.stringify(l.slice(0,30)))}
-  book=/\.epub$/i.test(name)?await openEpub(buf.slice(0)):await openPdf(buf.slice(0));
+  if(save){kvSet('bk:'+k,buf);const l=lib().filter(x=>x.k!==k&&!(x.name===name&&x.size===size));l.unshift({k,name,size});ls.set('lib',JSON.stringify(l.slice(0,30)))}
+  else if(isEpub||isMobi){const l=lib(),o=l.find(x=>x.name===name&&x.size===size&&x.k!==k);if(o){kvSet('bk:'+k,buf);kvDel('bk:'+o.k);ls.set('lib',JSON.stringify(l.map(x=>x===o?{k,name,size}:x)))}}
+  book=isEpub?await openEpub(buf.slice(0)):isMobi?await openMobi(buf.slice(0)):await openPdf(buf.slice(0));
   total=book.n;key=k;gPrev='';bookCtx=(await kvGet('bc:'+k))||{profile:'',terms:{}};glRe=null;
   pos=Math.min(Math.max(+ls.get(key)||0,0),total-1);
   $('#tot').textContent='/ '+total;
   ['prev','next','pg','bTerm','bAuto'].forEach(i=>$('#'+i).disabled=false);
   show();
   if(ls.get('preon:'+k)==='1'&&!preBusy)toast('⬇ অফলাইন প্রস্তুতি অসম্পূর্ণ (পাতা '+((+ls.get('pre:'+k)||0)+1)+'/'+total+' পর্যন্ত হয়েছে)। ⬇ চাপলে আপনার বর্তমান পাতা থেকে এগোবে।',6000);
- }catch(err){view.innerHTML='<div class="hello">বইটি খোলা যায়নি। অন্য ফাইল চেষ্টা করুন।</div>'}
+ }catch(err){const m=String(err&&err.message||'');view.innerHTML='<div class="hello">'+(m==='DRM'?'এই বইয়ে DRM লক আছে, খোলা যাবে না। DRM-মুক্ত কপি ব্যবহার করুন।':m==='HUFF'?'এই MOBI-র সংকোচন পদ্ধতি (HUFF/CDIC) সমর্থিত নয়। Calibre দিয়ে EPUB করে নিয়ে খুলুন।':m==='EMPTY'||m==='BAD'?'বইয়ে পড়ার মতো লেখা পাওয়া যায়নি। Calibre দিয়ে EPUB করে খুলে দেখুন।':'বইটি খোলা যায়নি। অন্য ফাইল চেষ্টা করুন।')+'</div>'}
 }
 $('#file').onchange=async e=>{
  const f=e.target.files[0];if(!f)return;
@@ -198,7 +297,7 @@ $('#file').onchange=async e=>{
 };
 function showLib(){
  const l=lib();sheet.style.display='none';view.className='';
- view.innerHTML='<div class="hello">📚 আমার বইয়ের তাক (V4)<br>'+(l.length?'বইয়ে ট্যাপ করে পড়া চালিয়ে যান।':'এখনো কোনো বই নেই। ওপরে 📂 চেপে PDF বা EPUB খুলুন, খোলা বই এখানে জমা থাকবে।')+'</div>';
+ view.innerHTML='<div class="hello">📚 আমার বইয়ের তাক (V4)<br>'+(l.length?'বইয়ে ট্যাপ করে পড়া চালিয়ে যান।':'এখনো কোনো বই নেই। ওপরে 📂 চেপে PDF, EPUB বা MOBI খুলুন, খোলা বই এখানে জমা থাকবে।')+'</div>';
  l.forEach(x=>{
   const r=document.createElement('div');r.style.cssText='display:flex;gap:6px;margin:8px 0';
   const b=document.createElement('button');b.style.cssText='flex:1;text-align:left';
@@ -250,7 +349,7 @@ function wbFix(t){
 async function tr(t,sl,tl){
  t=t.trim();tl=tl||'bn';const k=hk(sl+tl+(tl==='bn'?reg:'')+t);
  if(cache.has(k))return cache.get(k);
- const c=await kvGet(k);if(c!==undefined){cache.set(k,c);return c}
+ const c=await kvGet(k);if(c!==undefined&&!/MYMEMORY WARNING/i.test(String(c))){cache.set(k,c);return c}
  if(noNet){noNetHits++;throw new Error('nonet')}
  let r,sgs=null;
  try{
@@ -261,6 +360,7 @@ async function tr(t,sl,tl){
   try{
    const j=await (await fetch('https://api.mymemory.translated.net/get?langpair='+(sl==='auto'?'en':sl)+'|'+tl+'&q='+encodeURIComponent(t.slice(0,480)))).json();
    r=j.responseData.translatedText;
+   if((j.responseStatus!==200&&j.responseStatus!=='200')||/MYMEMORY WARNING|QUERY LENGTH LIMIT|PLEASE SELECT TWO DISTINCT/i.test(String(r||'')))throw new Error('MyMemory সীমা: '+String(r||'').slice(0,60));
   }catch(e2){netFail++;throw e2}
  }
  if(tl==='bn'&&reg==='wb')r=wbFix(r);
@@ -590,7 +690,7 @@ function termTable(){
 function gprompt(list){
  const T=termTable();
  return 'You are an expert human translator producing Bangla (Bengali) for a serious reader who is STUDYING this book and wants the author\'s exact ideas.\n'
- +'BOOK: '+(key?key.replace(/^pos:/,'').replace(/\d+$/,''):'unknown')+(gtp?'\nSUBJECT (from reader): '+gtp:'')+(bookCtx.profile?'\nBOOK PROFILE (your earlier understanding, keep following it): '+bookCtx.profile:'')+(cust.trim()?'\nREADER\'S CUSTOM INSTRUCTIONS (highest priority; follow them strictly, they override the defaults below where they differ):\n'+cust.trim():'')+'\n\n'
+ +'BOOK: '+(key?key.replace(/^pos:/,'').replace(/\d+(#pg)?$/,''):'unknown')+(gtp?'\nSUBJECT (from reader): '+gtp:'')+(bookCtx.profile?'\nBOOK PROFILE (your earlier understanding, keep following it): '+bookCtx.profile:'')+(cust.trim()?'\nREADER\'S CUSTOM INSTRUCTIONS (highest priority; follow them strictly, they override the defaults below where they differ):\n'+cust.trim():'')+'\n\n'
  +'PRIORITIES:\n'
  +'1. Faithful meaning. Carry the author\'s argument, nuance, emphasis, tone and register. Never drop, soften or add content.\n'
  +'2. Read ALL paragraphs as one connected text. Resolve pronouns, ellipsis and references from context; keep the logical flow between paragraphs; follow the book\'s subject so words take their meaning in this field (not their everyday meaning).\n'
@@ -662,7 +762,7 @@ async function gemTr(list,max){
 }
 const isNetErr=e=>!!e&&e.status===undefined&&(e.net||e.name==='TypeError'||/Failed to fetch|NetworkError|Load failed|network request/i.test(String(e.message||'')));
 const isRetryErr=e=>!!e&&(isNetErr(e)||e.name==='AbortError'||e.status>=500);
-let trRun=0,retryN=0,nextRetry=0,netHint=false,lastErr=null;
+let trRun=0,retryN=0,nextRetry=0,netHint=false,lastErr=null,aheadPend=false,aheadN=0,nextAhead=0;
 function gerr(e){
  const n=provName();
  if(isRetryErr(e))netHint=true;
@@ -772,7 +872,7 @@ async function translateAll0(){
  let blks=[...view.querySelectorAll('.blk')];
  for(const b of blks){b.querySelector('.tr').textContent='';b.querySelector('.tr').classList.remove('ai');b.querySelectorAll('.il').forEach(n=>n.remove());b.classList.remove('done','show','il-has');b.dataset.noau='';b.dataset.au=''}
  if(await applyPageLock(blks)){lastAiFor={key,pos};setSt('🔒 পাতা লক করা: নতুন অনুবাদ হয়নি (ডেটা ও কোটা বাঁচল)');showTally();aheadPump();setTimeout(syncPage,800);return}
- {const rest=[];for(const b of blks){const tx=b.querySelector('.o').textContent,lk=await pget('lk:'+hk(tx));if(lk&&lk.t){const d=b.querySelector('.tr');d.textContent=lk.t;fin(d,b)}else{const m=await pget('mp:'+hk(tx));if(m!=null){const d=b.querySelector('.tr');d.textContent=m;d.classList.add('ai');fin(d,b)}else{const au=await pget('au:'+hk(tx));if(au&&au.h!=null&&(au.gv===gver||!termHits(tx).length)){const d=b.querySelector('.tr');d.innerHTML=au.h;d.classList.toggle('ai',!!au.ai);b.dataset.au='1';fin(d,b)}else rest.push(b)}}}blks=rest}
+ {const rest=[];for(const b of blks){const tx=b.querySelector('.o').textContent,lk=await pget('lk:'+hk(tx));if(lk&&lk.t){const d=b.querySelector('.tr');d.textContent=lk.t;fin(d,b)}else{const m=await pget('mp:'+hk(tx));if(m!=null){const d=b.querySelector('.tr');d.textContent=m;d.classList.add('ai');fin(d,b)}else{const au=await pget('au:'+hk(tx));if(au&&au.h!=null&&!/MYMEMORY WARNING/i.test(au.h)&&(au.gv===gver||!termHits(tx).length)){const d=b.querySelector('.tr');d.innerHTML=au.h;d.classList.toggle('ai',!!au.ai);b.dataset.au='1';fin(d,b)}else rest.push(b)}}}blks=rest}
  if(llmOn()&&!hy){
   const nm=provName();setSt('⏳ AI অনুবাদ হচ্ছে ('+nm+')…');
   try{await gemAll(blks,my);if(my===tok){lastAiFor={key,pos};setSt('✓ AI অনুবাদ ('+nm+')');showTally();aheadPump();setTimeout(syncPage,800)}return}
@@ -1711,7 +1811,7 @@ function dl(name,text,mime){
  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.append(a);a.click();
  setTimeout(()=>{a.remove();try{URL.revokeObjectURL(a.href)}catch(e){}},2500);
 }
-const bookTitle=()=>(key||'বই').replace(/^pos:/,'').replace(/\d+$/,'').replace(/\.(pdf|epub)$/i,'')||'বই';
+const bookTitle=()=>(key||'বই').replace(/^pos:/,'').replace(/\d+(#pg)?$/,'').replace(/\.(pdf|epub|mobi|azw3?|prc)$/i,'')||'বই';
 function notesMD(){
  const L=[];
  L.push('# '+bookTitle()+' — নোট, হাইলাইট, বুকমার্ক','','> যন্ত্র-অনুবাদ মানুষের যাচাইয়ের বিকল্প নয়। উদ্ধৃতির আগে মূল লেখা মিলিয়ে নিন।','');
@@ -1776,7 +1876,7 @@ const APPV='3.3';
 let aheadTok=0,aheadDone={};
 function setAh(t){const e=$('#ah');if(e)e.textContent=t||''}
 async function aheadPump(){
- const N=Math.max(1,RS.ahead||1),my=++aheadTok,k0=key;
+ aheadPend=false;const N=Math.max(1,RS.ahead||1),my=++aheadTok,k0=key;
  if(!book||!navigator.onLine||preBusy){setAh('');return}
  const last=Math.min(total-1,pos+N);
  let lastDone=-1;
@@ -1786,24 +1886,36 @@ async function aheadPump(){
   setAh('⏩ আগে থেকে তৈরি হচ্ছে: পাতা '+(p+1)+' (পরের '+N+' পাতার মধ্যে)');
   let ps=[];try{ps=await book.get(p)}catch(e){}
   if(my!==aheadTok)return;
-  const lockedK=new Set();for(let k=0;k<ps.length;k++){const a=await pget('au:'+hk(ps[k]));if(a&&a.h!=null)lockedK.add(k)}
+   const lockedK=new Set();for(let k=0;k<ps.length;k++){const a=await pget('au:'+hk(ps[k]));if(a&&a.h!=null)lockedK.add(k)}
    const hs=await pool(ps,async q=>{const a=await pget('au:'+hk(q));if(a&&a.h!=null)return a.h;return trPara(q,new Set()).catch(()=>'')},2);
-  if(my!==aheadTok)return;
-  let aiOk=!llmOn()&&!aiBlocked();
-  if(RS.aheadAI!==false&&llmOn()&&ps.length){
-   try{
-    const c0=aiCalls;
-    if(hy){const sel=hardSel(ps.map((q,k)=>({q,k,s:hardScore(q,hs[k]||'')})).filter(x=>!lockedK.has(x.k)),hyPct);if(sel.length)await gemTr(sel.map(x=>x.q),3500)}
-    else{const todo=ps.filter((q,k)=>!lockedK.has(k));if(todo.length)await gemTr(todo,3500)}
-    if(aiCalls>c0)await sleepMs(gp==='gemini'?5000:1200);
-    aiOk=true;
-   }catch(e){aiOk=!isRetryErr(e)}
-  }
-  if(my!==aheadTok)return;
-  if(RS.autolock!==false&&ps.length&&aiOk&&key===k0&&hs.every(x=>x))await autoLockAhead(k0,p,ps,hs);
-  aheadDone[key+':'+p]=true;lastDone=p;
+   if(my!==aheadTok)return;
+   const wantAI=new Set();
+   if(RS.aheadAI!==false&&llmOn()&&ps.length){
+    if(hy)hardSel(ps.map((q,k)=>({q,k,s:hardScore(q,hs[k]||'')})).filter(x=>!lockedK.has(x.k)),hyPct).forEach(x=>wantAI.add(x.k));
+    else ps.forEach((q,k)=>{if(!lockedK.has(k))wantAI.add(k)});
+   }
+   if(wantAI.size){
+    try{const c0=aiCalls;await gemTr([...wantAI].map(k=>ps[k]),3500);if(aiCalls>c0)await sleepMs(gp==='gemini'?5000:1200)}
+    catch(e){if(!isRetryErr(e))wantAI.clear()}
+   }
+   if(my!==aheadTok)return;
+   let pend=0;
+   if(RS.autolock!==false&&key===k0){
+    for(let k=0;k<ps.length;k++){
+     if(lockedK.has(k))continue;
+     const hh=hk(ps[k]),a=wantAI.has(k)?await pget(pk(ps[k])):null;
+     if(wantAI.has(k)&&a==null){pend++;continue}
+     if(a==null&&!hs[k]){pend++;continue}
+     if((await pget('lk:'+hh))||await pget('mp:'+hh)!=null)continue;
+     pset('au:'+hh,{h:a!=null?esc(a):hs[k],ai:a!=null,gv:gver,at:Date.now()});
+    }
+   }
+   if(pend){aheadPend=true;setAh('⏳ পাতা '+(p+1)+': '+(ps.length-pend)+'/'+ps.length+' অনুচ্ছেদ লক, বাকিটা নিজে থেকে আবার চেষ্টা হবে');break}
+   if(RS.autolock!==false&&ps.length&&key===k0&&hs.every(x=>x))await autoLockAhead(k0,p,ps,hs);
+   aheadDone[key+':'+p]=true;lastDone=p;
  }
- if(my===aheadTok)setAh(lastDone>pos?'⏩ প্রস্তুত: পাতা '+(pos+2)+'–'+(lastDone+1)+' ✓ (পরের '+N+' পাতা)':'');
+ if(my===aheadTok&&!aheadPend)aheadN=0;
+ if(my===aheadTok&&!aheadPend)setAh(lastDone>pos?'⏩ প্রস্তুত: পাতা '+(pos+2)+'–'+(lastDone+1)+' ✓ (পরের '+N+' পাতা)':'');
 }
 
 // ---- সিঙ্ক: শব্দকোষ ↔ Google ↔ Gemini ↔ ChatGPT
@@ -1934,6 +2046,7 @@ async function applyPageLock(blks){
  const L=await pget('pl:'+key+':'+pos);
  if(!L||!Array.isArray(L.p)||L.p.length!==blks.length)return false;
  if(L.auto&&L.gv!==gver)return false;
+ if(L.h.some(x=>/MYMEMORY WARNING/i.test(String(x))))return false;
  for(let i=0;i<blks.length;i++)if(hk(blks[i].querySelector('.o').textContent)!==L.p[i])return false;
  blks.forEach((b,i)=>{const d=b.querySelector('.tr');d.innerHTML=L.h[i];d.classList.toggle('ai',!!L.ai[i]);fin(d,b)});
  return true;
@@ -2007,7 +2120,7 @@ async function lockParas(blks){
  for(const b of blks){
   if(b.dataset.au||b.dataset.noau||b.dataset.sy==='1'||!b.classList.contains('done'))continue;
   const d=b.querySelector('.tr'),tx=b.querySelector('.o').textContent,h0=hk(tx);
-  if(/⚠ অনুবাদ হয়নি/.test(d.textContent))continue;
+  if(/⚠ অনুবাদ হয়নি|MYMEMORY WARNING/i.test(d.textContent))continue;
   const lk=await pget('lk:'+h0);if(lk&&lk.t)continue;
   if(await pget('mp:'+h0)!=null)continue;
   const c=d.cloneNode(true);
@@ -2034,6 +2147,7 @@ function retryTick(){
  }else if(!navigator.onLine&&pageNeedsRetry()){
   setSt('📡 ইন্টারনেট নেই — সংযোগ এলেই নিজে থেকে আবার চেষ্টা করবে');
  }
+ if(aheadPend&&navigator.onLine&&trRun===0&&!preBusy&&Date.now()>=nextAhead){aheadN++;nextAhead=Date.now()+Math.min(120000,10000*aheadN);aheadPump()}
  cjResume();glAuto();
 }
 function cjResume(){
