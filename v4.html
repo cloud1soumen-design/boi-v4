@@ -43,7 +43,7 @@ label.b{position:relative;overflow:hidden}
 #ttsb{position:fixed;left:8px;right:8px;bottom:calc(66px + env(safe-area-inset-bottom,0px));background:var(--card);border:1px solid var(--ac);border-radius:12px;padding:6px 10px;display:none;align-items:center;gap:8px;z-index:8;flex-wrap:wrap}
 </style></head><body>
 <header>
- <label class="b p">📂<input id="file" type="file"></label><button id="bLib">📚</button>
+ <label class="b p">📂<input id="file" type="file"></label><button id="bLib">📚</button><button id="bWeb" class="p">🔗</button><button id="bPaste" class="p">📝</button>
  <button id="prev" disabled>◀</button><input id="pg" type="number" min="1" value="1" disabled><span id="tot"></span><button id="next" disabled>▶</button>
  <span class="sp"></span><button id="sm">Aa</button><button id="lg">☰</button>
 </header>
@@ -275,20 +275,46 @@ async function openMobi(buf){
 }
 
 const lib=()=>{try{return JSON.parse(ls.get('lib')||'[]')}catch(e){return[]}};
+async function autoPre(from){
+ for(let i=0;i<60&&preBusy;i++)await sleepMs(1000);
+ if(preBusy||!book||!navigator.onLine)return;
+ preBusy=true;ls.set('preon:'+key,'1');wlOn();preUi('⬇ পড়ার সাথে সাথে অটো অনুবাদ চলছে…',0);
+ try{await preRunInner(from)}finally{preBusy=false;wlOff();preUi('',null)}
+}
+let lastWebUrl='';
+async function getSaved(x){
+ let buf=await kvGet('bk:'+x.k);
+ if(!buf&&/^web:/.test(x.name)){try{const t=localStorage.getItem('wb:'+x.k);if(t)buf=new TextEncoder().encode(t).buffer}catch(e){}}
+ return buf||null;
+}
 async function openBuf(name,size,buf,save){
- view.className='';view.innerHTML='<div class="hello">লোড হচ্ছে…</div>';
+  view.className='';view.innerHTML='<div class="hello">লোড হচ্ছে…</div>';
  const isEpub=/\.epub$/i.test(name),isMobi=!isEpub&&(/\.(mobi|azw3?|prc)$/i.test(name)||(buf.byteLength>68&&String.fromCharCode(...new Uint8Array(buf,60,8))==='BOOKMOBI'));
  const k='pos:'+name+size+((isEpub||isMobi)?'#pg':'');
+ if(preBusy&&k!==key)preStop=true;
  try{
-  if(save){kvSet('bk:'+k,buf);const l=lib().filter(x=>x.k!==k&&!(x.name===name&&x.size===size));l.unshift({k,name,size});ls.set('lib',JSON.stringify(l.slice(0,30)))}
+  if(save){
+   let ok=true;const isW=/^web:/.test(name);
+   if(isW){
+    ok=false;
+    try{await kvSet('bk:'+k,buf);ok=!!(await kvGet('bk:'+k))}catch(e){}
+    if(!ok){try{localStorage.setItem('wb:'+k,new TextDecoder().decode(buf));ok=true}catch(e){}}
+    toast(ok?'✓ তাকে 📚 সেভ হয়েছে, পরে এখান থেকেই পড়ুন':'⚠ সেভ হয়নি, ব্রাউজারের স্টোরেজ বন্ধ বা ভরা',4000);
+   }else kvSet('bk:'+k,buf);
+   const l=lib().filter(x=>x.k!==k&&!(x.name===name&&x.size===size));l.unshift({k,name,size,u:isW?lastWebUrl:''});ls.set('lib',JSON.stringify(l.slice(0,30)));
+  }
   else if(isEpub||isMobi){const l=lib(),o=l.find(x=>x.name===name&&x.size===size&&x.k!==k);if(o){kvSet('bk:'+k,buf);kvDel('bk:'+o.k);ls.set('lib',JSON.stringify(l.map(x=>x===o?{k,name,size}:x)))}}
-  book=isEpub?await openEpub(buf.slice(0)):isMobi?await openMobi(buf.slice(0)):await openPdf(buf.slice(0));
-  total=book.n;key=k;gPrev='';bookCtx=(await kvGet('bc:'+k))||{profile:'',terms:{}};glRe=null;
+  book=/^web:/.test(name)?openWebBook(buf):isEpub?await openEpub(buf.slice(0)):isMobi?await openMobi(buf.slice(0)):await openPdf(buf.slice(0));
+  total=book.n;key=k;ls.set('last',k);gPrev='';bookCtx=(await kvGet('bc:'+k))||{profile:'',terms:{}};glRe=null;
   pos=Math.min(Math.max(+ls.get(key)||0,0),total-1);
   $('#tot').textContent='/ '+total;
   ['prev','next','pg','bTerm','bAuto'].forEach(i=>$('#'+i).disabled=false);
   show();
-  if(ls.get('preon:'+k)==='1'&&!preBusy)toast('⬇ অফলাইন প্রস্তুতি অসম্পূর্ণ (পাতা '+((+ls.get('pre:'+k)||0)+1)+'/'+total+' পর্যন্ত হয়েছে)। ⬇ চাপলে আপনার বর্তমান পাতা থেকে এগোবে।',6000);
+  if(/^web:/.test(name)&&ls.get('autoprep')!=='0'&&total>1){
+   if(save)setTimeout(()=>autoPre(1),2500);
+   else if(ls.get('preon:'+k)==='1'&&!preBusy)setTimeout(()=>autoPre(Math.min(total-1,Math.max(0,+ls.get('pre:'+k)||0))),2500);
+  }
+  if(ls.get('preon:'+k)==='1'&&!preBusy&&!/^web:/.test(name))toast('⬇ অফলাইন প্রস্তুতি অসম্পূর্ণ (পাতা '+((+ls.get('pre:'+k)||0)+1)+'/'+total+' পর্যন্ত হয়েছে)। ⬇ চাপলে আপনার বর্তমান পাতা থেকে এগোবে।',6000);
  }catch(err){const m=String(err&&err.message||'');view.innerHTML='<div class="hello">'+(m==='DRM'?'এই বইয়ে DRM লক আছে, খোলা যাবে না। DRM-মুক্ত কপি ব্যবহার করুন।':m==='HUFF'?'এই MOBI-র সংকোচন পদ্ধতি (HUFF/CDIC) সমর্থিত নয়। Calibre দিয়ে EPUB করে নিয়ে খুলুন।':m==='EMPTY'||m==='BAD'?'বইয়ে পড়ার মতো লেখা পাওয়া যায়নি। Calibre দিয়ে EPUB করে খুলে দেখুন।':'বইটি খোলা যায়নি। অন্য ফাইল চেষ্টা করুন।')+'</div>'}
 }
 $('#file').onchange=async e=>{
@@ -301,15 +327,210 @@ function showLib(){
  l.forEach(x=>{
   const r=document.createElement('div');r.style.cssText='display:flex;gap:6px;margin:8px 0';
   const b=document.createElement('button');b.style.cssText='flex:1;text-align:left';
-  b.textContent='📖 '+x.name+' (পাতা '+((+ls.get(x.k)||0)+1)+')';
-  b.onclick=async()=>{const buf=await kvGet('bk:'+x.k);if(!buf){toast('বইটি পাওয়া যায়নি, আবার খুলুন');return}openBuf(x.name,x.size,buf,false)};
+  b.textContent=(/^web:/.test(x.name)?'🔗 '+x.name.slice(4):'📖 '+x.name)+' (পাতা '+((+ls.get(x.k)||0)+1)+')';
+  b.onclick=async()=>{const buf=await getSaved(x);if(!buf){if(x.u){toast('আবার আনা হচ্ছে…');openWeb(x.u);return}toast('বইটি পাওয়া যায়নি, আবার খুলুন');return}openBuf(x.name,x.size,buf,false)};
   const d=document.createElement('button');d.textContent='🗑';
-  d.onclick=()=>{if(!confirm('"'+x.name+'" তাক থেকে সরাবেন?'))return;kvDel('bk:'+x.k);ls.set('lib',JSON.stringify(lib().filter(y=>y.k!==x.k)));showLib()};
+  d.onclick=()=>{if(!confirm('"'+x.name+'" তাক থেকে সরাবেন?'))return;kvDel('bk:'+x.k);try{localStorage.removeItem('wb:'+x.k)}catch(e){}ls.set('lib',JSON.stringify(lib().filter(y=>y.k!==x.k)));showLib()};
   r.append(b,d);view.append(r);
  });
  const wbtn=document.createElement('button');wbtn.textContent='🧭 সেটআপ গাইড';wbtn.style.marginTop='14px';wbtn.onclick=()=>showWiz(1);view.append(wbtn);const ibt=document.createElement('button');ibt.textContent='📲 ইনস্টল পরীক্ষা';ibt.style.cssText='margin:14px 0 0 6px';ibt.onclick=openInstall;view.append(ibt);
 }
 $('#bLib').onclick=showLib;
+function openWebBook(buf){
+ const j=JSON.parse(new TextDecoder().decode(buf));
+ return{n:j.pages.length,async toc(){return j.pages.map((p,i)=>({t:(p[0]||'').slice(0,60),i,l:0}))},async get(i){return j.pages[i]||[]}};
+}
+function webParas(h){
+ const doc=new DOMParser().parseFromString(h,'text/html');
+ doc.querySelectorAll('script,style,noscript,nav,footer,aside,form,svg,iframe,button,select,[hidden],[aria-hidden="true"]').forEach(n=>n.remove());
+ const root=doc.querySelector('article')||doc.querySelector('main')||doc.body;
+ const Q='h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,figcaption,td';
+ const a=[...root.querySelectorAll(Q)].filter(e=>!e.querySelector(Q)).map(e=>e.textContent.replace(/\s+/g,' ').trim()).filter(t=>t.length>1);
+ const out=[];a.forEach(t=>{if(out[out.length-1]!==t)out.push(t)});
+ return{title:(doc.title||'').trim(),paras:out};
+}
+function mdParas(m){
+ let title='';const t=m.match(/^Title:\s*(.+)$/m);if(t)title=t[1].trim();
+ const i=m.indexOf('Markdown Content:');if(i>=0)m=m.slice(i+17);
+ const out=m.split(/\n\s*\n/).map(x=>x.replace(/!\[[^\]]*\]\([^)]*\)/g,'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/^[#>*\-\s\d.]+/,'').replace(/[*_`]/g,'').replace(/\s+/g,' ').trim()).filter(x=>x.length>1);
+ return{title,paras:out};
+}
+async function getWeb(u){
+ const px=[x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x),x=>'https://corsproxy.io/?url='+encodeURIComponent(x)];
+ for(const p of px){
+  try{const r=await fetch(p(u));if(!r.ok)continue;const h=await r.text();if(h&&h.length>300){const w=webParas(h);if(w.paras.length>2)return w}}catch(e){}
+ }
+ try{const r=await fetch('https://r.jina.ai/'+u);if(r.ok){const w=mdParas(await r.text());if(w.paras.length>0)return w}}catch(e){}
+ return null;
+}
+function splitText(t,max){
+ max=max||650;t=t.replace(/\s+/g,' ').trim();
+ if(t.length<=max)return t?[t]:[];
+ const sents=t.split(/(?<=[.!?।。؟])\s+/),out=[];let cur='';
+ const push=()=>{if(cur){out.push(cur);cur=''}};
+ for(let s of sents){
+  while(s.length>max){
+   let cut=s.lastIndexOf(' ',max);if(cut<max*0.5)cut=max;
+   const head=s.slice(0,cut).trim();s=s.slice(cut).trim();
+   if(cur&&cur.length+head.length+1<=max)cur+=' '+head;else{push();cur=head}
+   push();
+  }
+  if(!s)continue;
+  if(cur&&cur.length+s.length+1>max)push();
+  cur+=(cur?' ':'')+s;
+ }
+ push();return out;
+}
+function webFinish(u,title,host,paras,per){
+ lastWebUrl=u||'';
+ paras=paras.flatMap(p=>p.length>900?splitText(p,650):[p]);
+ per=Math.min(per||2200,2200);
+ const pages=[];let cur=[],n=0;
+ paras.forEach(p=>{cur.push(p);n+=p.length;if(n>(per||2200)){pages.push(cur);cur=[];n=0}});
+ if(cur.length)pages.push(cur);
+ const name='web:'+(title||host).slice(0,60)+' ('+host+')';
+ const buf=new TextEncoder().encode(JSON.stringify({url:u,pages})).buffer;
+ openBuf(name,buf.byteLength,buf,true);
+}
+const ytId=u=>{const m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/|v\/))([\w-]{11})/i);return m?m[1]:null};
+async function viaProxy(u,opt){
+ const px=[x=>'https://corsproxy.io/?url='+encodeURIComponent(x),x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x)];
+ for(const p of px){try{const r=await fetch(p(u),opt);if(r.ok){const t=await r.text();if(t&&t.length>20)return t}}catch(e){}}
+ return null;
+}
+function pickTrack(tr){
+ if(!tr||!tr.length)return null;
+ const pr=t=>(t.kind!=='asr'?0:10)+(/^en/.test(t.languageCode)?0:1);
+ return [...tr].sort((a,b)=>pr(a)-pr(b))[0];
+}
+async function ytTracks(id){
+ const h=await viaProxy('https://www.youtube.com/watch?v='+id+'&hl=en');
+ if(h){const m=h.match(/"captionTracks":(\[.*?\])(?:,"audioTracks"|,"translationLanguages"|\})/);if(m){try{const t=JSON.parse(m[1]);if(t.length)return t}catch(e){}}}
+ const body=JSON.stringify({context:{client:{clientName:'ANDROID',clientVersion:'19.09.37',androidSdkVersion:30,hl:'en'}},videoId:id});
+ const j=await viaProxy('https://www.youtube.com/youtubei/v1/player?prettyPrint=false',{method:'POST',headers:{'Content-Type':'application/json'},body});
+ if(j){try{const t=JSON.parse(j).captions?.playerCaptionsTracklistRenderer?.captionTracks;if(t&&t.length)return t}catch(e){}}
+ return null;
+}
+async function ytText(tk){
+ let x=await viaProxy(tk.baseUrl+'&fmt=json3');
+ if(x){try{const j=JSON.parse(x);const o=[];(j.events||[]).forEach(e=>{if(e.segs)o.push(e.segs.map(g=>g.utf8||'').join(''))});if(o.join('').trim())return o.map(z=>z.replace(/\s+/g,' ').trim()).filter(Boolean)}catch(e){}}
+ x=await viaProxy(tk.baseUrl);
+ if(x){const d=new DOMParser().parseFromString(x,'text/xml');const o=[...d.querySelectorAll('text,p')].map(n=>n.textContent.replace(/\s+/g,' ').trim()).filter(Boolean);if(o.length)return o}
+ return null;
+}
+const dcode=t=>{const e=document.createElement('textarea');e.innerHTML=t;return e.value};
+async function ytApi(id,key){
+ const H={headers:{Authorization:'Bearer '+key}},B='https://getyoutubetranscript.com/api/v1/';
+ const get=async l=>{const r=await fetch(B+'transcript?timestamps=true&v='+id+(l?'&language='+l:''),H);let j=null;try{j=await r.json()}catch(e){}return{s:r.status,j}};
+ try{
+  let x=await get('');
+  if(x.s===401){toast('API কী ঠিক নয়',5000);return null}
+  if(x.s===402||(x.j&&x.j.code==='PAYMENT_REQUIRED')){toast('API-র ফ্রি ক্রেডিট শেষ',5000);return null}
+  if(x.s===404){const l=await fetch(B+'transcript/languages?v='+id,H);if(l.ok){const lj=await l.json();const c=lj.data&&lj.data.default_language_code;if(c)x=await get(c)}}
+  const d=x.j&&x.j.data;if(!d)return null;
+  if(d.segments&&d.segments.length)return d.segments.map(g=>dcode(g.text||'').replace(/\s+/g,' ').trim()).filter(Boolean);
+  if(d.transcript)return dcode(d.transcript).split(/(?<=[.!?।])\s+/).filter(Boolean);
+ }catch(e){}
+ return null;
+}
+function ytParas(lines){
+ const out=[];let cur='';
+ for(const l of lines){cur+=(cur?' ':'')+l;if(cur.length>=450&&/[.!?।…"”)]$/.test(cur)||cur.length>=700){out.push(cur);cur=''}}
+ if(cur)out.push(cur);
+ return out;
+}
+function cleanPasted(t){
+ const lines=t.split(/\n/).map(x=>x.trim()).filter(x=>x&&!/^\d{1,2}(:\d{2}){1,2}$/.test(x));
+ return ytParas(lines);
+}
+let ytErr='';
+async function ytGemini(id){
+ const key=gk;if(!key)return null;
+ const prompt='Transcribe all the speech in this video exactly as spoken, in the ORIGINAL language of the video. Do NOT translate. Output plain text only, grouped into natural paragraphs separated by blank lines. No timestamps, no speaker labels, no headings, no commentary. If there is no speech, transcribe the readable on-screen text instead.';
+ const ms=[...new Set([gm||'gemini-2.5-flash','gemini-2.5-flash'])];
+ for(const m of ms){
+  const ac=new AbortController(),to=setTimeout(()=>ac.abort(),480000);
+  const gc={temperature:0.2,maxOutputTokens:65536};
+  if(/^gemini-2\.5-flash/.test(m))gc.thinkingConfig={thinkingBudget:0};
+  try{
+   const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+encodeURIComponent(key),{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{file_data:{file_uri:'https://www.youtube.com/watch?v='+id}},{text:prompt}]}],generationConfig:gc})});
+   const j=await r.json().catch(()=>null);
+   if(!r.ok){ytErr=(j&&j.error&&j.error.message)||('HTTP '+r.status);if(r.status===429||r.status===404||r.status===503)continue;break}
+   const c=j.candidates&&j.candidates[0];
+   const t=c&&c.content&&c.content.parts?c.content.parts.map(p=>p.text||'').join(''):'';
+   if(t.trim()){if(c.finishReason==='MAX_TOKENS')toast('ভিডিও অনেক লম্বা, শুরুর অংশ আনা হয়েছে',5000);return t}
+   ytErr='Gemini কিছু ফেরত দেয়নি';
+  }catch(e){ytErr=String(e.message||e)}finally{clearTimeout(to)}
+ }
+ return null;
+}
+function gemParas(t){
+ t=t.replace(/\*\*|__|`/g,'').replace(/^#+\s*/gm,'');
+ let p=t.split(/\n\s*\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+ if(p.length<3&&t.length>1500)p=ytParas(t.split(/(?<=[.!?।。])\s+/));
+ const o=[];p.forEach(x=>{if(x.length<=900)o.push(x);else o.push(...ytParas(x.split(/(?<=[.!?।。])\s+/)))});
+ return o;
+}
+function askTranscript(u,host,title){
+ const w=document.createElement('div');w.style.cssText='position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto';
+ w.innerHTML='<div style="background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:12px;padding:14px;width:100%;max-width:560px"><div style="font-size:14px;line-height:1.6;margin-bottom:8px">'+(ytErr?'<div style="color:var(--ac);font-size:12px;margin-bottom:6px;word-break:break-word">'+esc(ytErr.slice(0,200))+'</div>':'')+'<b>সবচেয়ে সহজ (ফ্রি):</b> Gemini কী দিন। <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--ac)">aistudio.google.com/apikey</a> থেকে কী নিন। Gemini ভিডিওটা নিজেই শুনে লিখে দেবে, ক্যাপশন না থাকলেও চলবে।<div style="display:flex;gap:6px;margin:6px 0"><input id="ytk" placeholder="AIza..." style="flex:1;font:inherit;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px"><button id="ytks" class="p">সেভ ও চালান</button></div><b>অথবা:</b> ইউটিউবে ভিডিওর নিচে <b>…আরও → ট্রান্সক্রিপ্ট দেখান</b> থেকে লেখা কপি করে নিচে পেস্ট করুন।</div><textarea id="ytp" style="width:100%;height:30vh;font:inherit;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:8px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button id="ytop">▶ ইউটিউবে খুলুন</button><button id="ytcb">📋 পেস্ট</button></div><div style="display:flex;gap:8px;margin-top:8px"><button class="p" id="ytok" style="flex:1">অনুবাদ করুন</button><button id="ytno">বাতিল</button></div></div>';
+ document.body.append(w);
+ w.querySelector('#ytk').value=gk||'';
+ w.querySelector('#ytks').onclick=()=>{const v=w.querySelector('#ytk').value.trim();if(!v){toast('কী লিখুন');return}gk=v;ls.set('gk',v);w.remove();const id=ytId(u);if(id)openYT(u,id)};
+ w.querySelector('#ytop').onclick=()=>window.open(u,'_blank');
+ w.querySelector('#ytcb').onclick=async()=>{try{const t=await navigator.clipboard.readText();if(!t||t.length<20){toast('ক্লিপবোর্ডে ট্রান্সক্রিপ্ট নেই');return}w.querySelector('#ytp').value=t;toast('পেস্ট হয়েছে, এবার অনুবাদ চাপুন')}catch(e){toast('পেস্ট করতে ঘরে চেপে ধরে Paste দিন',4000)}};
+ w.querySelector('#ytno').onclick=()=>{w.remove();showLib()};
+ w.querySelector('#ytok').onclick=()=>{const p=cleanPasted(w.querySelector('#ytp').value);if(!p.length){toast('কিছু পেস্ট করা হয়নি');return}w.remove();webFinish(u,title,host,p,2600)};
+}
+async function openYT(u,id){
+ ytErr='';
+ view.className='';view.innerHTML='<div class="hello">▶ ইউটিউব ট্রান্সক্রিপ্ট আনা হচ্ছে…</div>';
+ let title='YouTube '+id;
+ try{const r=await fetch('https://www.youtube.com/oembed?format=json&url='+encodeURIComponent('https://www.youtube.com/watch?v='+id));if(r.ok){const j=await r.json();if(j.title)title='▶ '+j.title}}catch(e){}
+ if(gk){
+  view.innerHTML='<div class="hello">▶ Gemini ভিডিওটা শুনে লিখছে…<br>লম্বা ভিডিওতে ১–৩ মিনিট লাগতে পারে, অ্যাপ খোলা রাখুন।</div>';
+  const t=await ytGemini(id);
+  if(t){const P=gemParas(t);if(P.length){webFinish(u,title,'youtube · Gemini',P,2600);return}}
+ }
+ view.innerHTML='<div class="hello">▶ ক্যাপশন খোঁজা হচ্ছে…</div>';
+ const tr=await ytTracks(id),tk=pickTrack(tr);
+ const lines=tk?await ytText(tk):null;
+ if(lines&&lines.length){webFinish(u,title,'youtube'+(tk.kind==='asr'?' · অটো-ক্যাপশন':''),ytParas(lines),2600);return}
+ askTranscript(u,'youtube',title);
+}
+async function openWeb(u){
+ u=(u||'').trim();if(!u)return;
+ if(!/^https?:\/\//i.test(u))u='https://'+u;
+ {const id=ytId(u);if(id)return openYT(u,id)}
+ let host='';try{host=new URL(u).hostname.replace(/^www\./,'')}catch(e){toast('লিংকটা ঠিক নয়');return}
+ view.className='';view.innerHTML='<div class="hello">🔗 ওয়েবসাইট আনা হচ্ছে…<br>'+host+'</div>';
+ const w=await getWeb(u);
+ if(!w){view.innerHTML='<div class="hello">এই সাইট থেকে লেখা আনা যায়নি (সাইটটি আটকে দিয়েছে বা ইন্টারনেট নেই)। অন্য লিংক চেষ্টা করুন।</div>';return}
+ webFinish(u,w.title,host,w.paras);
+}
+function pasteParas(t){
+ t=t.replace(/\r/g,'');
+ const chunks=t.split(/\n\s*\n/).map(x=>x.split('\n').filter(l=>!/^\s*\d{1,2}(:\d{2}){1,2}\s*$/.test(l)).join(' ').replace(/\s+/g,' ').trim()).filter(Boolean);
+ if(chunks.length>=3&&chunks.join('').length/chunks.length>80){const o=[];chunks.forEach(x=>{if(x.length<=900)o.push(x);else o.push(...ytParas(x.split(/(?<=[.!?।。])\s+/)))});return o}
+ return cleanPasted(t);
+}
+function askPaste(){
+ const w=document.createElement('div');w.style.cssText='position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto';
+ w.innerHTML='<div style="background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:12px;padding:14px;width:100%;max-width:560px"><div style="font-size:14px;line-height:1.6;margin-bottom:8px"><b>📝 যেকোনো লেখা/ট্রান্সক্রিপ্ট পেস্ট করুন</b> (যেকোনো ভাষা)। বাংলায় অনুবাদ হবে, আর 📚 তাকে সেভ থাকবে, পরে এসে পড়তে পারবেন।</div><input id="ptt" placeholder="নাম (ঐচ্ছিক), যেমন: ইউটিউব ভিডিও ১" style="width:100%;font:inherit;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px;margin-bottom:6px"><textarea id="ptx" style="width:100%;height:40vh;font:inherit;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:8px"></textarea><label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:8px"><input type="checkbox" id="pta"> পড়ার সাথে সাথে বাকি অংশ অটো অনুবাদ হোক (ছোট ছোট ধাপে, লম্বা লেকচারের জন্য)</label><div style="display:flex;gap:8px;margin-top:8px"><button id="ptc">📋 পেস্ট</button><button class="p" id="pto" style="flex:1">অনুবাদ ও সেভ</button><button id="ptn">বাতিল</button></div></div>';
+ document.body.append(w);
+ w.querySelector('#ptc').onclick=async()=>{try{const t=await navigator.clipboard.readText();if(!t){toast('ক্লিপবোর্ড খালি');return}w.querySelector('#ptx').value=t}catch(e){toast('ঘরে চেপে ধরে Paste দিন',4000)}};
+ w.querySelector('#pta').checked=ls.get('autoprep')!=='0';
+ w.querySelector('#ptn').onclick=()=>w.remove();
+ w.querySelector('#pto').onclick=()=>{
+  const t=w.querySelector('#ptx').value;ls.set('autoprep',w.querySelector('#pta').checked?'1':'0');const p=pasteParas(t);
+  if(!p.length){toast('কিছু পেস্ট করা হয়নি');return}
+  const ti=(w.querySelector('#ptt').value.trim()||t.trim().replace(/\s+/g,' ').slice(0,40));
+  w.remove();webFinish('',ti,'পেস্ট',p,2600);
+ };
+}
+$('#bPaste').onclick=askPaste;
+$('#bWeb').onclick=()=>{const u=prompt('ওয়েবসাইট বা ইউটিউব ভিডিওর লিংক দিন (যেকোনো ভাষা, বাংলায় অনুবাদ হবে):','');if(u)openWeb(u)};
+
 async function show(){
  view.innerHTML='';sheet.style.display='none';
  try{paras=await book.get(pos)}catch(e){paras=[]}
@@ -630,10 +851,13 @@ const PRESET=[["Dharma", "ধর্ম (Dharma)"], ["Great Perfection", "মহ�
 const hpv=ls.get('hyp');let hyPct=(hpv===null||hpv===''||isNaN(+hpv))?25:+hpv;
 let hy=ls.get('hy')!=='0',noEn=ls.get('ne')!=='0',qUntil=+ls.get('qu')||0,aheadP=null,aiCalls=0;
 let oaK=ls.get('oak')||'',oaU=ls.get('oau')||'https://api.openai.com/v1',oaM=ls.get('oam')||'';
+let g2=ls.get('g2')==='1',oaK2=ls.get('oak2')||'',oaU2=ls.get('oau2')||'https://api.groq.com/openai/v1',oaM2=ls.get('oam2')||'',qUntil2=+ls.get('qu2')||0,usedFb=false,fbUsed=0;
 const aiKey=()=>gp==='claude'?ak:gp==='oai'?(oaM&&oaK):gk;
-const provName=()=>gp==='claude'?'Claude':gp==='oai'?'AI সার্ভিস':'Gemini';
-const llmOn=()=>gOn&&aiKey()&&Date.now()>=qUntil;
-const aiBlocked=()=>gOn&&aiKey()&&Date.now()<qUntil;
+const sec2=()=>!!(g2&&oaK2&&oaM2);
+const qWait=()=>sec2()?Math.min(qUntil,qUntil2):qUntil;
+const provName=()=>usedFb?'বিকল্প AI ('+oaM2+')':gp==='claude'?'Claude':gp==='oai'?'AI সার্ভিস':'Gemini';
+const llmOn=()=>gOn&&aiKey()&&(Date.now()>=qUntil||(sec2()&&Date.now()>=qUntil2));
+const aiBlocked=()=>gOn&&aiKey()&&Date.now()<qWait();
 let gk=ls.get('gk')||'',gm=ls.get('gm2')||'gemini-2.5-flash',gtp=ls.get('gtp')||'',bookCtx={profile:'',terms:{}},gPrev='';
 async function gem(prompt,tmo){
  const ms=[...new Set([gm,'gemini-2.5-flash','gemini-2.5-flash-lite','gemini-flash-latest','gemini-flash-lite-latest','gemini-3.5-flash'])];
@@ -680,7 +904,30 @@ async function oai(prompt,tmo){
  const t=((j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'').replace(/^\s*```(json)?|```\s*$/g,'').trim();
  try{return JSON.parse(t)}catch(e){const m2=t.match(/[\[{][\s\S]*[\]}]/);if(m2)return JSON.parse(m2[0]);throw e}
 }
-const llm=(p,t)=>gp==='claude'?claude(p,t):gp==='oai'?oai(p,t):gem(p,t);
+const llm1=(p,t)=>gp==='claude'?claude(p,t):gp==='oai'?oai(p,t):gem(p,t);
+async function oai2(prompt,tmo){
+ const ac=new AbortController(),to=setTimeout(()=>ac.abort(),tmo||120000);let r;
+ try{r=await fetch(oaU2.replace(/\/+$/,'')+'/chat/completions',{method:'POST',signal:ac.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+oaK2},body:JSON.stringify({model:oaM2,temperature:0.3,messages:[{role:'user',content:prompt}]})})}finally{clearTimeout(to)}
+ aiCalls++;
+ if(!r.ok){
+  const e=new Error('http');e.status=r.status;e.msg=(await r.text().catch(()=>'')).slice(0,300);
+  if(r.status===429){e.daily=/day|daily/i.test(e.msg);qUntil2=Date.now()+(e.daily?6*3600e3:90e3);ls.set('qu2',String(qUntil2))}
+  throw e;
+ }
+ const j=await r.json();
+ const t=((j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'').replace(/^\s*```(json)?|```\s*$/g,'').trim();
+ try{return JSON.parse(t)}catch(e){const m2=t.match(/[\[{][\s\S]*[\]}]/);if(m2)return JSON.parse(m2[0]);throw e}
+}
+// প্রথম পছন্দ: মূল AI (Gemini); না চললে বা কোটা শেষ হলে বিকল্প AI
+async function llm(p,t){
+ const primOk=Date.now()>=qUntil;
+ if(primOk){
+  try{usedFb=false;return await llm1(p,t)}
+  catch(e){if(!sec2()||Date.now()<qUntil2)throw e}
+ }else if(!(sec2()&&Date.now()>=qUntil2)){const e=new Error('quota');e.status=429;throw e}
+ usedFb=true;fbUsed++;
+ return await oai2(p,t);
+}
 function termTable(){
  const keep=[],map=[];
  Object.entries(bookCtx.terms).forEach(([en,b])=>{b==='KEEP_EN'?keep.push(en):map.push(en+' = '+b)});
@@ -875,9 +1122,9 @@ async function translateAll0(){
  {const rest=[];for(const b of blks){const tx=b.querySelector('.o').textContent,lk=await pget('lk:'+hk(tx));if(lk&&lk.t){const d=b.querySelector('.tr');d.textContent=lk.t;fin(d,b)}else{const m=await pget('mp:'+hk(tx));if(m!=null){const d=b.querySelector('.tr');d.textContent=m;d.classList.add('ai');fin(d,b)}else{const au=await pget('au:'+hk(tx));if(au&&au.h!=null&&!/MYMEMORY WARNING/i.test(au.h)&&(au.gv===gver||!termHits(tx).length)){const d=b.querySelector('.tr');d.innerHTML=au.h;d.classList.toggle('ai',!!au.ai);b.dataset.au='1';fin(d,b)}else rest.push(b)}}}blks=rest}
  if(llmOn()&&!hy){
   const nm=provName();setSt('⏳ AI অনুবাদ হচ্ছে ('+nm+')…');
-  try{await gemAll(blks,my);if(my===tok){lastAiFor={key,pos};setSt('✓ AI অনুবাদ ('+nm+')');showTally();aheadPump();setTimeout(syncPage,800)}return}
+  try{await gemAll(blks,my);if(my===tok){lastAiFor={key,pos};setSt('✓ AI অনুবাদ ('+(usedFb?provName():nm)+')');showTally();aheadPump();setTimeout(syncPage,800)}return}
   catch(e){lastErr=e;const why=gerr(e)+' ['+(e.status||e.message||'?')+']';setSt('⚠ '+why);toast(why,8000);aiFailed=true;lastAiState='fail';for(const b of blks){const c=await pget(pk(b.querySelector('.o').textContent));if(c!=null&&my===tok)applyAI(b,c);else{b.querySelector('.tr').textContent='';b.classList.remove('done')}}blks=blks.filter(b=>!b.classList.contains('done'))}
- }else setSt(llmOn()?'⏳ Google দিয়ে দ্রুত অনুবাদ হচ্ছে… (কঠিন অংশ পরে AI দেখবে)':aiBlocked()?'⏸ AI-র ফ্রি কোটা এখন শেষ (চালু হবে '+new Date(qUntil).toLocaleString([],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'), এখন Google Translate চলছে':'Google Translate (AI বন্ধ — 🧠-তে চালু করুন)');
+ }else setSt(llmOn()?'⏳ Google দিয়ে দ্রুত অনুবাদ হচ্ছে… (কঠিন অংশ পরে AI দেখবে)':aiBlocked()?'⏸ AI-র ফ্রি কোটা এখন শেষ (চালু হবে '+new Date(qWait()).toLocaleString([],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'), এখন Google Translate চলছে':'Google Translate (AI বন্ধ — 🧠-তে চালু করুন)');
  for(let i=0;i<blks.length&&my===tok;i+=3){
   await Promise.all(blks.slice(i,i+3).map(async b=>{
    const d=b.querySelector('.tr');
@@ -1231,11 +1478,12 @@ async function preAI(i0){
  const pp=$('#pp')||document.createElement('div');preStop=false;let i=i0||0;
  while(i<total&&!preStop){
   const pend=[];let n=0,j=i;
-  while(j<total&&n<8000&&j<i+12){let ps;try{ps=await book.get(j)}catch(e){ps=[]}pend.push(...ps);n+=ps.join('').length;j++}
+  const LIM=/^pos:web:/.test(key)?3000:8000;
+  while(j<total&&n<LIM&&j<i+12){let ps;try{ps=await book.get(j)}catch(e){ps=[]}pend.push(...ps);n+=ps.join('').length;j++}
   pp.textContent='AI অনুবাদ হচ্ছে… পাতা '+(i+1)+'–'+j+' / '+total;preUi('⬇ AI অনুবাদ… পাতা '+(i+1)+'–'+j+'/'+total,Math.round(j/total*100));ls.set('pre:'+key,String(i));
   const c0=aiCalls;
   try{
-   const o=await gemTr(pend,9000);
+   const o=await gemTr(pend,LIM+1000);
    try{await prefetchWords(o.filter(x=>x))}catch(e){}
    try{const ew=[...new Set(pend.filter(p=>lat(p)>bn(p)).flatMap(p=>contentWords(p).map(w=>w.toLowerCase())))];if(ew.length)await bnOf(ew)}catch(e){}
   }catch(e){pp.textContent=gerr(e).replace(' এখন Google Translate চলছে।','').replace(' Google Translate দিয়ে চলছে।','')+' পাতা '+i+' পর্যন্ত জমা হয়েছে। কোটা ফিরলে বা নেট এলে নিজে থেকেই এখান থেকে এগোবে (অ্যাপ খোলা রাখুন)।';if(e.status===429||isRetryErr(e)){cjSet({from:i0||0,to:total-1,next:i})}return}
@@ -1256,7 +1504,7 @@ async function preRunInner(i0){
  const pp=$('#pp')||document.createElement('div');
  if(!book){pp.textContent='আগে একটা বই খুলুন।';return}
  preStop=false;let bad=0;
- if(aiBlocked()){pp.textContent='AI-র ফ্রি কোটা এখন শেষ। চালু হবে: '+new Date(qUntil).toLocaleString([],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'। তখন আবার চালান।';return}
+ if(aiBlocked()){pp.textContent='AI-র ফ্রি কোটা এখন শেষ। চালু হবে: '+new Date(qWait()).toLocaleString([],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'। তখন আবার চালান।';return}
  if(llmOn()&&!hy){await preAI(i0);return}
  let hardBuf=[],hardN=0,aiDead=false,aiMsg='';
  const flushHard=async()=>{
@@ -1307,7 +1555,14 @@ $('#bGl').onclick=()=>{
  +'<input class="gi" id="oau" placeholder="ChatGPT/অন্য সার্ভিসের ঠিকানা (যেমন https://api.openai.com/v1)">'
  +'<input class="gi" id="oak" type="password" placeholder="সেই সার্ভিসের API key" autocomplete="off">'
  +'<input class="gi" id="oam" placeholder="মডেলের নাম (সার্ভিসের সাইট দেখে লিখুন)">'
- +'<input class="gi" id="gtp" placeholder="বইয়ের বিষয় (যেমন: ট্রেডিং, মনোবিজ্ঞান)">'
+ +'<div style="margin-top:10px"><b>🛟 বিকল্প AI (Gemini না চললে নিজে থেকে এটা চলবে)</b><br><span style="font-size:13px;color:var(--mut)">প্রথম পছন্দ সবসময় ওপরের AI (Gemini)। সেটা ব্যর্থ হলে, নেট বা সার্ভারে সমস্যা হলে বা কোটা শেষ হলে এই key দিয়ে একই কাজ হবে। যেকোনো OpenAI-সামঞ্জস্যপূর্ণ সার্ভিস চলে, যেমন Groq, OpenRouter, Mistral, Cerebras।</span></div>'
++'<label style="display:block;margin:6px 0"><input type="checkbox" id="g2on"> বিকল্প AI চালু</label>'
++'<select class="gi" id="g2p"><option value="">সার্ভিস বেছে নিন (ঠিকানা ও মডেল বসে যাবে)</option><option value="groq">Groq (ফ্রি, দ্রুত)</option><option value="or">OpenRouter (ফ্রি মডেল আছে)</option><option value="mi">Mistral (ফ্রি mode)</option><option value="ce">Cerebras (ফ্রি)</option><option value="x">অন্য (নিজে লিখব)</option></select>'
++'<input class="gi" id="oau2" placeholder="বিকল্প সার্ভিসের ঠিকানা (যেমন https://api.groq.com/openai/v1)">'
++'<input class="gi" id="oam2" placeholder="বিকল্প মডেলের নাম (সার্ভিসের সাইট দেখে লিখুন)">'
++'<input class="gi" id="oak2" type="password" placeholder="বিকল্প সার্ভিসের API key" autocomplete="off">'
++'<button id="g2t">🔌 বিকল্প AI পরীক্ষা</button><div id="g2m" style="font-size:13px;margin-top:4px;white-space:pre-wrap"></div>'
++'<input class="gi" id="gtp" placeholder="বইয়ের বিষয় (যেমন: ট্রেডিং, মনোবিজ্ঞান)">'
  +'<div style="margin-top:8px"><b>📜 অনুবাদের নির্দেশনা (AI-কে দেওয়া প্রম্পট)</b><br>Gemini, Claude ও ChatGPT-র সব অনুবাদে এটা যোগ হয়। Google Translate-এ প্রম্পট দেওয়া যায় না, সেখানে নিচের প্রিসেট পরিভাষা কাজ করে।</div>'
  +'<textarea class="gi" id="cust" rows="8"></textarea>'
  +'<button id="custd">ডিফল্ট (দর্শন) ফিরিয়ে আনুন</button> <button id="custc">খালি করুন</button> <button id="presetb">🕉 দর্শন পরিভাষা প্রিসেট যোগ</button>'
@@ -1323,7 +1578,21 @@ $('#bGl').onclick=()=>{
  +'<div id="bp" style="margin:6px 0;font-size:15px;color:var(--mut)"></div>'
  +'<button class="p" id="gs">সেভ করুন</button> <button id="gc">বন্ধ করুন</button> <button id="gtest">🔌 Gemini পরীক্ষা</button> <button id="gpst">📥 ChatGPT-র উত্তর পেস্ট করুন</button> <button id="wzgo">🧭 সেটআপ গাইড</button> <button id="inst">📲 ইনস্টল পরীক্ষা</button> <button id="bpr">প্রোফাইল রিসেট</button> <button id="bpi">📥 AI-র শেখা টার্ম শব্দকোষে নিন</button> <button id="vbump">🔄 সব AI অনুবাদ নতুন করে</button> <button id="pgre">🔄 শুধু এই পাতা আবার</button><div id="gres" style="margin-top:6px"></div>';
  $('#gt').value=gl.map(g=>g.bn?g.en+' = '+g.bn:g.en).join('\n');
- $('#pe').checked=pe;$('#ul').checked=useLearned;$('#ne').checked=noEn;$('#bo').checked=bo;$('#br').checked=br;$('#gc').onclick=()=>{sheet.style.display='none'};
+ $('#g2on').checked=g2;$('#oau2').value=oaU2;$('#oam2').value=oaM2;$('#oak2').value=oaK2;
+  {const P={groq:['https://api.groq.com/openai/v1','llama-3.3-70b-versatile'],or:['https://openrouter.ai/api/v1','meta-llama/llama-3.3-70b-instruct:free'],mi:['https://api.mistral.ai/v1','mistral-small-latest'],ce:['https://api.cerebras.ai/v1','llama-3.3-70b']};
+  $('#g2p').onchange=()=>{const p=P[$('#g2p').value];if(p){$('#oau2').value=p[0];$('#oam2').value=p[1]}};
+  $('#g2t').onclick=async()=>{
+   const o=$('#g2m');const su=oaU2,sk=oaK2,sm=oaM2;
+   oaU2=$('#oau2').value.trim();oaK2=$('#oak2').value.trim();oaM2=$('#oam2').value.trim();
+   if(!oaU2||!oaK2||!oaM2){o.textContent='ঠিকানা, মডেল আর key তিনটাই দিন';oaU2=su;oaK2=sk;oaM2=sm;return}
+   o.textContent='⏳ পরীক্ষা হচ্ছে…';
+   try{const res=await oai2(gprompt(['The order block is a key idea in market structure, and liquidity moves price.']),40000);
+    const arr=Array.isArray(res)?res:res&&res.translations,f=arr&&arr[0],tx=f&&(f.t||(typeof f==='string'?f:''));
+    o.textContent=tx?'✅ কাজ করছে। নমুনা:\n'+tx+'\n(সেভ করুন, নইলে এটা ধরা হবে না)':'⚠ উত্তর এসেছে কিন্তু ফরম্যাট ভাঙা: '+JSON.stringify(res).slice(0,200);
+   }catch(e){o.textContent='❌ '+(e.status?'সার্ভিস সাড়া দিয়েছে '+e.status+': '+(e.msg||''):(e.message||e))}
+   oaU2=su;oaK2=sk;oaM2=sm;
+  };}
+  $('#pe').checked=pe;$('#ul').checked=useLearned;$('#ne').checked=noEn;$('#bo').checked=bo;$('#br').checked=br;$('#gc').onclick=()=>{sheet.style.display='none'};
  const bpShow=()=>{$('#bp').textContent=bookCtx.profile?'📘 AI-এর বোঝা: '+bookCtx.profile+' (শেখা টার্ম: '+Object.keys(bookCtx.terms).length+')':''};bpShow();
  $('#gpst').onclick=()=>openPaste();
  $('#wzgo').onclick=()=>showWiz(1);$('#inst').onclick=openInstall;
@@ -1368,6 +1637,8 @@ $('#bGl').onclick=()=>{
   });
   gk=$('#gk').value.trim();gm=$('#gm').value.trim()||'gemini-2.5-flash';pe=$('#pe').checked;noEn=$('#ne').checked;useLearned=$('#ul').checked;ls.set('ul',useLearned?'1':'0');glRe=null;ls.set('ne',noEn?'1':'0');qUntil=0;ls.set('qu','0');bo=$('#bo').checked;br=$('#br').checked;ls.set('bo',bo?'1':'0');ls.set('br',br?'1':'0');gOn=$('#gon').checked;ls.set('pe',pe?'1':'0');ls.set('gon',gOn?'1':'0');gtp=$('#gtp').value.trim();ak=$('#ak').value.trim();cm=$('#cm').value.trim()||'claude-haiku-5-5';gp=$('#gp').value;reg=$('#reg').value;ls.set('ak',ak);ls.set('cm',cm);ls.set('gp',gp);ls.set('reg',reg);ls.set('gmode',$('#gmode').value);ls.set('gcl',$('#gcl').value.trim());cust=$('#cust').value;ls.set('cust',cust);hyPct=+$('#hyp').value;ls.set('hyp',String(hyPct));glu=$('#glu').value.trim();ls.set('glu',glu);ls.set('gscope',$('#gscope').value);ls.set('gshort',$('#gsh').checked?'1':'0');ls.set('custs',$('#custs').value);hy=$('#hy').value==='1';ls.set('hy',hy?'1':'0');oaK=$('#oak').value.trim();oaU=$('#oau').value.trim()||'https://api.openai.com/v1';oaM=$('#oam').value.trim();ls.set('oak',oaK);ls.set('oau',oaU);ls.set('oam',oaM);
   saveGl();ls.set('gk',gk);ls.set('gm2',gm);ls.set('gtp',gtp);
+  g2=$('#g2on').checked;oaU2=$('#oau2').value.trim()||'https://api.groq.com/openai/v1';oaM2=$('#oam2').value.trim();oaK2=$('#oak2').value.trim();qUntil2=0;
+  ls.set('g2',g2?'1':'0');ls.set('oau2',oaU2);ls.set('oam2',oaM2);ls.set('oak2',oaK2);ls.set('qu2','0');
   sheet.style.display='none';toast(llmOn()?'সেভ হয়েছে, AI চালু':'সেভ হয়েছে');
   if(book){vc();if(auto)translateAll()}
  };
@@ -1851,17 +2122,37 @@ async function transHTML(from,to,prog){
  }
  return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(bookTitle())} — দ্বিভাষিক</title><style>body{font-family:'Noto Serif Bengali',Georgia,serif;max-width:900px;margin:auto;padding:14px;line-height:1.8}.r{border-bottom:1px solid #ccc;padding:8px 0}.p{font-size:12px;color:#777}.e{font-family:Georgia,serif;color:#555;font-size:.9em}.b{margin-top:4px}</style></head><body><h2>${esc(bookTitle())} — মূল ও অনুবাদ (পাতা ${from+1}–${to+1})</h2><p style="font-size:13px;color:#a33">যন্ত্র-অনুবাদ মানুষের যাচাইয়ের বিকল্প নয়। 🔒 = লক করা, ✔ = যাচাই করা, AI/Google/ChatGPT = উৎস।</p>${rows.join('')}</body></html>`;
 }
+async function transMD(from,to,prog,both){
+ const L=['# '+bookTitle()+' (বাংলা অনুবাদ)',''];
+ for(let i=from;i<=to;i++){
+  let ps=[];try{ps=await book.get(i)}catch(e){}
+  L.push('## পাতা '+(i+1),'');
+  for(const p of ps){const bt=await bestTrans(p);L.push(bt.t);if(both)L.push('','> মূল: '+p);L.push('')}
+  if(prog)prog(i-from+1,to-from+1);
+ }
+ return L.join('\n');
+}
 function openExport(){
  sheet.style.display='flex';
  out.innerHTML=`<b>📤 রপ্তানি</b><div style="margin:6px 0">
  <button id="exn">📝 নোট, হাইলাইট, বুকমার্ক (Markdown)</button><button id="exc">📚 শব্দকোষ (CSV)</button><button id="ext">📚 শব্দকোষ (লেখা)</button></div>
- <div style="margin:8px 0"><b>📄 দ্বিভাষিক অনুবাদ (HTML)</b><br>পাতা <input class="gi" id="exf" type="number" min="1" style="width:80px;display:inline-block"> থেকে <input class="gi" id="exe" type="number" min="1" style="width:80px;display:inline-block"> পর্যন্ত<br><span style="font-size:12px;color:var(--mut)">লক, ChatGPT ও AI অনুবাদ আগে নেয়, না থাকলে Google দিয়ে করে (অনলাইন লাগে)। বেশি পাতা দিলে সময় লাগে।</span><br><button class="p" id="exh">⬇ ফাইল বানান</button></div><div id="exs" style="font-size:13px"></div>
+ <div style="margin:8px 0"><b>📄 দ্বিভাষিক অনুবাদ (HTML)</b><br>পাতা <input class="gi" id="exf" type="number" min="1" style="width:80px;display:inline-block"> থেকে <input class="gi" id="exe" type="number" min="1" style="width:80px;display:inline-block"> পর্যন্ত<br><span style="font-size:12px;color:var(--mut)">লক, ChatGPT ও AI অনুবাদ আগে নেয়, না থাকলে Google দিয়ে করে (অনলাইন লাগে)। বেশি পাতা দিলে সময় লাগে।</span><br><button class="p" id="exh">⬇ ফাইল বানান</button></div>
+ <div style="margin:8px 0;padding:8px;border:1px solid var(--bd);border-radius:8px"><b>📓 NotebookLM-এর জন্য</b> <button id="exall" style="font-size:12px">সব পাতা</button><br><span style="font-size:12px;color:var(--mut)">ওপরের পাতার সীমা অনুযায়ী বাংলা অনুবাদ .md ফাইল হয়, সেটা NotebookLM-এ <b>Add source → Upload / Copied text</b> দিয়ে যোগ করুন।</span><br><button class="p" id="exnb">📓 শুধু বাংলা</button> <button id="exnb2">📓 মূল + বাংলা</button> <a href="https://notebooklm.google.com" target="_blank" rel="noopener" style="color:var(--ac);font-size:13px">NotebookLM খুলুন ↗</a></div><div id="exs" style="font-size:13px"></div>
  <div style="font-size:12px;color:var(--mut)">ফাইল নামানো না গেলে লেখাটা কপি হয়ে যাবে, কোনো নোট-অ্যাপে পেস্ট করে নিন।</div>`;
  $('#exf').value=pos+1;$('#exe').value=Math.min(total,pos+30);
  const out1=async(name,text,mime)=>{dl(name,text,mime);const ok=await copyText(text);$('#exs').textContent='✅ '+name+' নামছে'+(ok?' (লেখা কপিও হয়েছে)':'')};
  $('#exn').onclick=()=>out1(bookTitle()+'-নোট.md',notesMD(),'text/markdown;charset=utf-8');
  $('#exc').onclick=()=>out1('শব্দকোষ.csv',glossCSV(),'text/csv;charset=utf-8');
  $('#ext').onclick=()=>out1('শব্দকোষ.txt',glossTXT());
+ $('#exall').onclick=()=>{$('#exf').value=1;$('#exe').value=total};
+ const nb=both=>async()=>{
+  const f=Math.max(1,+$('#exf').value||1)-1,t=Math.min(total,+$('#exe').value||total)-1;
+  if(t<f){$('#exs').textContent='পাতার সীমা ঠিক নেই';return}
+  $('#exs').textContent='⏳ বানানো হচ্ছে…';
+  try{const md=await transMD(f,t,(i,n)=>{$('#exs').textContent='⏳ '+i+'/'+n+' পাতা'},both);out1(bookTitle()+(both?'-মূল-ও-বাংলা':'-বাংলা')+'.md',md,'text/markdown;charset=utf-8')}
+  catch(e){$('#exs').textContent='❌ বানানো যায়নি: '+(e.message||e)}
+ };
+ $('#exnb').onclick=nb(false);$('#exnb2').onclick=nb(true);
  $('#exh').onclick=async()=>{
   const f=Math.max(1,+$('#exf').value||1)-1,t=Math.min(total,+$('#exe').value||total)-1;
   if(t<f){$('#exs').textContent='পাতার সীমা ঠিক নেই';return}
@@ -1872,7 +2163,7 @@ function openExport(){
 }
 
 // ===== v3.2: ইনস্টল পরীক্ষা, ধাপে ধাপে আগাম অনুবাদ, সিঙ্ক =====
-const APPV='3.3';
+const APPV='4.6';
 let aheadTok=0,aheadDone={};
 function setAh(t){const e=$('#ah');if(e)e.textContent=t||''}
 async function aheadPump(){
@@ -2153,7 +2444,7 @@ function retryTick(){
 function cjResume(){
  const j=cjGet();if(!j||chapBusy||preBusy||!book)return;
  if(!navigator.onLine||!(gOn&&aiKey()))return;
- if(Date.now()<qUntil){cjUi('⏸ AI কোটা শেষ — '+fmtT(qUntil)+'-এ নিজে থেকে চালু হবে (পরের অংশ পাতা '+(j.next+1)+')',true);return}
+ if(Date.now()<qWait()){cjUi('⏸ AI কোটা শেষ — '+fmtT(qWait())+'-এ নিজে থেকে চালু হবে (পরের অংশ পাতা '+(j.next+1)+')',true);return}
  chapRun(j);
 }
 window.addEventListener('online',()=>{nextRetry=0;retryN=0;retryTick()});
@@ -2168,7 +2459,7 @@ async function chapRun(job){
  const k0=key;let paused=null,i=job.next;
  try{
   while(i<=job.to&&!preStop&&key===k0){
-   if(Date.now()<qUntil){paused={why:'quota'};break}
+   if(Date.now()<qWait()){paused={why:'quota'};break}
    if(!navigator.onLine){paused={why:'net'};break}
    const pend=[];let n=0,j=i;
    while(j<=job.to&&(j===i||n<partMax)){let ps=[];try{ps=await book.get(j)}catch(e){}pend.push(...ps);n+=ps.join('').length;j++}
@@ -2179,7 +2470,7 @@ async function chapRun(job){
     i=j;job.next=i;cjSet(job);partOk++;
     if(partOk>=3&&partMax<8000){partMax=Math.min(8000,partMax*2);partOk=0}
    }catch(e){
-    if(e.status===429){if(Date.now()>=qUntil)qUntil=Date.now()+90000;paused={why:'quota'};break}
+    if(e.status===429){if(Date.now()>=qWait())qUntil=Date.now()+90000;paused={why:'quota'};break}
     if(isNetErr(e)){paused={why:'net'};break}
     if(e.status===400||e.status===401||e.status===403){paused={why:'key'};break}
     if(partMax>1500){partMax=Math.max(1500,Math.floor(partMax/2));partOk=0;continue}
@@ -2198,7 +2489,7 @@ async function chapRun(job){
   if(book)translateAll();
  }else if(paused){
   const nx='পরের অংশ পাতা '+(i+1);
-  if(paused.why==='quota')cjUi('⏸ AI কোটা শেষ — '+fmtT(qUntil)+'-এ নিজে থেকে চালু হবে ('+nx+')। অ্যাপ খোলা রাখুন',true);
+  if(paused.why==='quota')cjUi('⏸ AI কোটা শেষ — '+fmtT(qWait())+'-এ নিজে থেকে চালু হবে ('+nx+')। অ্যাপ খোলা রাখুন',true);
   else if(paused.why==='net')cjUi('📡 সংযোগ নেই — নেট এলেই নিজে থেকে চালু হবে ('+nx+')',true);
   else if(paused.why==='key'){cjSet(null);cjUi('⚠ AI key ঠিক নেই, জব থেমেছে',true)}
   else{cjUi('⚠ জব থেমেছে: '+(paused.msg||'অজানা সমস্যা')+' — কিছুক্ষণ পরে নিজে আবার চেষ্টা করবে',true)}
@@ -2331,7 +2622,7 @@ function showWiz(n){
 }
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw4.js',{scope:'./'}).catch(()=>{});
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
-showLib();applyRS();
+(async()=>{try{const e=lib().find(x=>x.k===ls.get('last'));if(e){const b=await getSaved(e);if(b){openBuf(e.name,e.size,b,false);return}}}catch(_){}showLib()})();applyRS();
 if(ls.get('wzdone')!=='1'&&!gk)setTimeout(()=>showWiz(1),700);
 let glTry=0;
 function glAuto(){
