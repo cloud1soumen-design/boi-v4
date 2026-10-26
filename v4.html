@@ -330,9 +330,42 @@ async function openBuf(name,size,buf,save){
   if(ls.get('preon:'+k)==='1'&&!preBusy&&!/^web:/.test(name))toast('⬇ অফলাইন প্রস্তুতি অসম্পূর্ণ (পাতা '+((+ls.get('pre:'+k)||0)+1)+'/'+total+' পর্যন্ত হয়েছে)। ⬇ চাপলে আপনার বর্তমান পাতা থেকে এগোবে।',6000);
  }catch(err){const m=String(err&&err.message||'');view.innerHTML='<div class="hello">'+(m==='DRM'?'এই বইয়ে DRM লক আছে, খোলা যাবে না। DRM-মুক্ত কপি ব্যবহার করুন।':m==='HUFF'?'এই MOBI-র সংকোচন পদ্ধতি (HUFF/CDIC) সমর্থিত নয়। Calibre দিয়ে EPUB করে নিয়ে খুলুন।':m==='EMPTY'||m==='BAD'?'বইয়ে পড়ার মতো লেখা পাওয়া যায়নি। Calibre দিয়ে EPUB করে খুলে দেখুন।':'বইটি খোলা যায়নি। অন্য ফাইল চেষ্টা করুন।')+'</div>'}
 }
+async function takeFile(f){
+ pendSer=null;
+ const isBook=/\.(pdf|epub|mobi|azw3?|prc)$/i.test(f.name||'');
+ if(/\.(txt|md|markdown)$/i.test(f.name||'')||(!isBook&&/^text\/(plain|markdown)$/.test(f.type||''))){
+  const p=pasteParas(await f.text());
+  if(!p.length){toast('ফাইলে লেখা নেই');return}
+  webFinish('',(f.name||'লেখা').replace(/\.[^.]+$/,''),'ফাইল',p,2600);return;
+ }
+ let name=f.name||'book';
+ if(!isBook){if(/epub/i.test(f.type))name+='.epub';else if(/mobi|mobipocket/i.test(f.type))name+='.mobi';else if(/pdf/i.test(f.type))name+='.pdf'}
+ await openBuf(name,f.size,await f.arrayBuffer(),true);
+}
+async function handleShared(){
+ let n=0,meta=null;
+ try{
+  const c=await caches.open('share-inbox'),ks=await c.keys();
+  const mk=ks.find(k=>/__share\/meta$/.test(k.url));
+  if(mk)meta=await (await c.match(mk)).json();
+  const fk=ks.filter(k=>/__share\/f\d+$/.test(k.url)).sort((a,b)=>a.url.localeCompare(b.url,undefined,{numeric:true}));
+  for(const k of fk){
+   const r=await c.match(k),b=await r.blob();
+   await takeFile(new File([b],decodeURIComponent(r.headers.get('x-name')||'book'),{type:r.headers.get('content-type')||''}));n++;
+  }
+  await Promise.all(ks.map(k=>c.delete(k)));
+ }catch(e){}
+ try{history.replaceState(null,'',location.pathname)}catch(e){}
+ if(n>1)toast(n+'টি বই তাকে যোগ হয়েছে',4000);
+ if(!n){
+  const tx=(meta&&meta.text)||'',m=tx.match(/https?:\/\/[^\s]+/);
+  if(m)askLink(m[0]);else if(tx.trim().length>30)askPaste(tx);else showLib();
+ }
+}
+if('launchQueue' in window)launchQueue.setConsumer(async p=>{for(const h of (p.files||[])){try{await takeFile(await h.getFile())}catch(e){}}});
 $('#file').onchange=async e=>{
  const f=e.target.files[0];if(!f)return;
- pendSer=null;openBuf(f.name,f.size,await f.arrayBuffer(),true);
+ takeFile(f);
 };
 async function openEntry(x){
  const buf=await getSaved(x);
@@ -563,11 +596,12 @@ function pasteParas(t){
  if(chunks.length>=3&&chunks.join('').length/chunks.length>80){const o=[];chunks.forEach(x=>{if(x.length<=900)o.push(x);else o.push(...ytParas(x.split(/(?<=[.!?।。])\s+/)))});return o}
  return cleanPasted(t);
 }
-function askPaste(){
+function askPaste(t0){
  const w=document.createElement('div');w.style.cssText='position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto';
  w.innerHTML='<div style="background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:12px;padding:14px;width:100%;max-width:560px"><div style="font-size:14px;line-height:1.6;margin-bottom:8px"><b>📝 যেকোনো লেখা/ট্রান্সক্রিপ্ট পেস্ট করুন</b> (যেকোনো ভাষা)। বাংলায় অনুবাদ হবে, আর 📚 তাকে সেভ থাকবে, পরে এসে পড়তে পারবেন।</div><input id="ptt" placeholder="নাম (ঐচ্ছিক), যেমন: ইউটিউব ভিডিও ১" style="width:100%;font:inherit;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px;margin-bottom:6px">'+serBox('pz')+'<textarea id="ptx" style="width:100%;height:36vh;font:inherit;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:8px"></textarea><label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:8px"><input type="checkbox" id="pta"> পড়ার সাথে সাথে বাকি অংশ অটো অনুবাদ হোক (ছোট ছোট ধাপে, লম্বা লেকচারের জন্য)</label><div style="display:flex;gap:8px;margin-top:8px"><button id="ptc">📋 পেস্ট</button><button class="p" id="pto" style="flex:1">অনুবাদ ও সেভ</button><button id="ptn">বাতিল</button></div></div>';
  document.body.append(w);
  w.querySelector('#ptc').onclick=async()=>{try{const t=await navigator.clipboard.readText();if(!t){toast('ক্লিপবোর্ড খালি');return}w.querySelector('#ptx').value=t}catch(e){toast('ঘরে চেপে ধরে Paste দিন',4000)}};
+ if(typeof t0==='string')w.querySelector('#ptx').value=t0;
  w.querySelector('#pta').checked=ls.get('autoprep')!=='0';
  w.querySelector('#ptn').onclick=()=>w.remove();
  w.querySelector('#pto').onclick=()=>{
@@ -577,17 +611,18 @@ function askPaste(){
   pendSer=readSer(w,'pz');w.remove();webFinish('',ti,'পেস্ট',p,2600);
  };
 }
-$('#bPaste').onclick=askPaste;
-function askLink(){
+$('#bPaste').onclick=()=>askPaste();
+function askLink(u0){
  pendSer=null;
  const w=document.createElement('div');w.style.cssText='position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:center;justify-content:center;padding:14px';
  w.innerHTML='<div style="background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:12px;padding:14px;width:100%;max-width:560px"><div style="font-size:14px;line-height:1.6;margin-bottom:6px"><b>🔗 ওয়েবসাইট বা ইউটিউব লিংক</b> (যেকোনো ভাষা, বাংলায় অনুবাদ হবে)</div><div style="display:flex;gap:6px"><input id="lku" placeholder="https://..." style="flex:1;min-width:0;font:inherit;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:8px"><button id="lkc">📋</button></div>'+serBox('lk')+'<div style="display:flex;gap:8px;margin-top:8px"><button class="p" id="lko" style="flex:1">আনুন</button><button id="lkx">বাতিল</button></div></div>';
  document.body.append(w);
+ if(typeof u0==='string')w.querySelector('#lku').value=u0;
  w.querySelector('#lkc').onclick=async()=>{try{const t=(await navigator.clipboard.readText()||'').trim();if(t)w.querySelector('#lku').value=t}catch(e){toast('ঘরে চেপে ধরে Paste দিন',4000)}};
  w.querySelector('#lkx').onclick=()=>w.remove();
  w.querySelector('#lko').onclick=()=>{const u=w.querySelector('#lku').value.trim();if(!u){toast('লিংক দিন');return}pendSer=readSer(w,'lk');w.remove();openWeb(u)};
 }
-$('#bWeb').onclick=askLink;
+$('#bWeb').onclick=()=>askLink();
 
 async function show(){
  view.innerHTML='';sheet.style.display='none';
@@ -2692,7 +2727,7 @@ function showWiz(n){
 }
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw4.js',{scope:'./'}).catch(()=>{});
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
-(async()=>{try{const e=lib().find(x=>x.k===ls.get('last'));if(e){const b=await getSaved(e);if(b){openBuf(e.name,e.size,b,false);return}}}catch(_){}showLib()})();applyRS();
+(async()=>{if(/[?&]shared=1/.test(location.search)){await handleShared();return}try{const e=lib().find(x=>x.k===ls.get('last'));if(e){const b=await getSaved(e);if(b){openBuf(e.name,e.size,b,false);return}}}catch(_){}showLib()})();applyRS();
 if(ls.get('wzdone')!=='1'&&!gk)setTimeout(()=>showWiz(1),700);
 let glTry=0;
 function glAuto(){

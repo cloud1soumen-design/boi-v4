@@ -1,25 +1,73 @@
 {
- "name": "বাংলা বই পাঠক V4",
- "short_name": "বই পাঠক V4",
- "id": "./v4.html",
- "start_url": "./v4.html",
- "scope": "./",
- "display": "standalone",
- "background_color": "#faf6ee",
- "theme_color": "#2f8f5b",
- "lang": "bn",
- "icons": [
-  {
-   "src": "icon4-192.png",
-   "sizes": "192x192",
-   "type": "image/png",
-   "purpose": "any maskable"
+  "name": "বাংলা বই পাঠক V4",
+  "short_name": "বই পাঠক V4",
+  "start_url": "./v4.html",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#b4561f",
+  "background_color": "#fbf6ee",
+  "icons": [
+    {
+      "src": "icon4-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon4-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "share_target": {
+    "action": "./v4.html?share=1",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "book",
+          "accept": [
+            "application/pdf",
+            "application/epub+zip",
+            "application/x-mobipocket-ebook",
+            "text/plain",
+            "text/markdown",
+            ".pdf",
+            ".epub",
+            ".mobi",
+            ".azw3",
+            ".azw",
+            ".txt",
+            ".md"
+          ]
+        }
+      ]
+    }
   },
-  {
-   "src": "icon4-512.png",
-   "sizes": "512x512",
-   "type": "image/png",
-   "purpose": "any maskable"
-  }
- ]
+  "file_handlers": [
+    {
+      "action": "./v4.html",
+      "accept": {
+        "application/pdf": [
+          ".pdf"
+        ],
+        "application/epub+zip": [
+          ".epub"
+        ],
+        "application/x-mobipocket-ebook": [
+          ".mobi",
+          ".azw3"
+        ],
+        "text/plain": [
+          ".txt",
+          ".md"
+        ]
+      }
+    }
+  ]
 }
