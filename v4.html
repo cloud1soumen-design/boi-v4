@@ -422,7 +422,7 @@ function openWebBook(buf){
  const j=JSON.parse(new TextDecoder().decode(buf));
  return{n:j.pages.length,next:j.next||'',async toc(){return j.pages.map((p,i)=>({t:(p[0]||'').slice(0,60),i,l:0}))},async get(i){return j.pages[i]||[]}};
 }
-const NXT=t=>t&&t.length<=40&&!/prev|previous|back|আগের|পূর্ববর্তী/i.test(t)&&(/^[«»‹›←→<>\s]*(?:next|পরের|পরবর্তী)(?![A-Za-z])/i.test(t)||/^[»›→]+$|^>>$/.test(t));
+const NXT=t=>t&&t.length<=40&&!/prev|previous|back|আগের|পূর্ববর্তী|पिछल|पिछला/i.test(t)&&(/^[«»‹›←→<>\s]*(?:next|পরের|পরবর্তী|अगला|अगली|अगले|आगे)(?![A-Za-z])/i.test(t)||/^[»›→]+$|^>>$/.test(t));
 function findNext(doc,base){
  let bu;try{bu=new URL(base)}catch(e){return ''}
  const ok=a=>{try{const h=a.getAttribute('href');if(!h||/^(javascript:|mailto:|tel:|#)/i.test(h))return '';const x=new URL(h,bu);if(!/^https?:$/.test(x.protocol)||x.hostname!==bu.hostname)return '';x.hash='';if(x.href===bu.href.replace(/#.*$/,''))return '';return x.href}catch(e){return ''}};
@@ -594,15 +594,24 @@ async function openYT(u,id){
  if(lines&&lines.length){webFinish(u,title,'youtube'+(tk.kind==='asr'?' · অটো-ক্যাপশন':''),ytParas(lines),2600);return}
  askTranscript(u,'youtube',title);
 }
+function langVariant(u,c){try{const x=new URL(u);if(!/^\/en(\/|$)/.test(x.pathname))return null;x.pathname=x.pathname.replace(/^\/en/,'/'+c);return x.href}catch(e){return null}}
+function langOk(w,c){const t=w.paras.join(' ');return c==='hi'?(t.match(/[\u0900-\u0963\u0966-\u097F]/g)||[]).length>(t.match(/[A-Za-z]/g)||[]).length:bn(t)>lat(t)}
 async function openWeb(u){
  u=(u||'').trim();if(!u)return;
  if(!/^https?:\/\//i.test(u))u='https://'+u;
  {const id=ytId(u);if(id)return openYT(u,id)}
  let host='';try{host=new URL(u).hostname.replace(/^www\./,'')}catch(e){toast('লিংকটা ঠিক নয়');return}
  view.className='';view.innerHTML='<div class="hello">🔗 ওয়েবসাইট আনা হচ্ছে…<br>'+host+'</div>';
- const w=await getWeb(u);
+ let w=null,tag='';
+ {const lv=ls.get('lv')||'',vu=lv?langVariant(u,lv):null;
+  if(vu){
+   try{w=await getWeb(vu)}catch(e){w=null}
+   if(w&&langOk(w,lv)){u=vu;tag=' · '+(lv==='hi'?'হিন্দি':'বাংলা')+' সংস্করণ'}
+   else{w=null;toast('এই পাতার '+(lv==='hi'?'হিন্দি':'বাংলা')+' সংস্করণ পাইনি, মূল পাতা থেকেই অনুবাদ হচ্ছে',5000)}
+  }}
+ if(!w)w=await getWeb(u);
  if(!w){view.innerHTML='<div class="hello">এই সাইট থেকে লেখা আনা যায়নি (সাইটটি আটকে দিয়েছে বা ইন্টারনেট নেই)। অন্য লিংক চেষ্টা করুন।</div>';return}
- webFinish(u,w.title,host,w.paras,undefined,w.next);
+ webFinish(u,w.title,host+tag,w.paras,undefined,w.next);
 }
 function pasteParas(t){
  t=t.replace(/\r/g,'');
@@ -629,12 +638,12 @@ $('#bPaste').onclick=()=>askPaste();
 function askLink(u0){
  pendSer=null;
  const w=document.createElement('div');w.style.cssText='position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:center;justify-content:center;padding:14px';
- w.innerHTML='<div style="background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:12px;padding:14px;width:100%;max-width:560px"><div style="font-size:14px;line-height:1.6;margin-bottom:6px"><b>🔗 ওয়েবসাইট বা ইউটিউব লিংক</b> (যেকোনো ভাষা, বাংলায় অনুবাদ হবে)</div><div style="display:flex;gap:6px"><input id="lku" placeholder="https://..." style="flex:1;min-width:0;font:inherit;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:8px"><button id="lkc">📋</button></div>'+serBox('lk')+'<div style="display:flex;gap:8px;margin-top:8px"><button class="p" id="lko" style="flex:1">আনুন</button><button id="lkx">বাতিল</button></div></div>';
- document.body.append(w);
+ w.innerHTML='<div style="background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:12px;padding:14px;width:100%;max-width:560px"><div style="font-size:14px;line-height:1.6;margin-bottom:6px"><b>🔗 ওয়েবসাইট বা ইউটিউব লিংক</b> (যেকোনো ভাষা, বাংলায় অনুবাদ হবে)</div><div style="display:flex;gap:6px"><input id="lku" placeholder="https://..." style="flex:1;min-width:0;font:inherit;font-size:14px;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:8px"><button id="lkc">📋</button></div>'+serBox('lk')+'<select class="gi" id="lkv"><option value="">ভাষা-সংস্করণ: লিংক যেমন আছে (ইংরেজি থেকে বাংলা)</option><option value="hi">ভাষা-সংস্করণ: হিন্দি সংস্করণ থেকে বাংলা (সাইটে থাকলে)</option><option value="bn">ভাষা-সংস্করণ: সাইটের নিজস্ব বাংলা সংস্করণ (থাকলে)</option></select><div style="font-size:12px;color:var(--mut);margin-top:-4px">শুধু /en/ দিয়ে শুরু লিংকে (যেমন studybuddhism.com/en/…) কাজ করে। সংস্করণ না পেলে মূল পাতা থেকেই অনুবাদ হবে।</div><div style="display:flex;gap:8px;margin-top:8px"><button class="p" id="lko" style="flex:1">আনুন</button><button id="lkx">বাতিল</button></div></div>';
+ document.body.append(w);w.querySelector('#lkv').value=ls.get('lv')||'';
  if(typeof u0==='string')w.querySelector('#lku').value=u0;
  w.querySelector('#lkc').onclick=async()=>{try{const t=(await navigator.clipboard.readText()||'').trim();if(t)w.querySelector('#lku').value=t}catch(e){toast('ঘরে চেপে ধরে Paste দিন',4000)}};
  w.querySelector('#lkx').onclick=()=>w.remove();
- w.querySelector('#lko').onclick=()=>{const u=w.querySelector('#lku').value.trim();if(!u){toast('লিংক দিন');return}pendSer=readSer(w,'lk');w.remove();openWeb(u)};
+ w.querySelector('#lko').onclick=()=>{const u=w.querySelector('#lku').value.trim();if(!u){toast('লিংক দিন');return}pendSer=readSer(w,'lk');ls.set('lv',w.querySelector('#lkv').value);w.remove();openWeb(u)};
 }
 $('#bWeb').onclick=()=>askLink();
 
@@ -813,7 +822,7 @@ async function pool(items,fn,n){
  return res;
 }
 const RE=/[A-Za-z][A-Za-z0-9'’\-]*(?:\s+[A-Za-z][A-Za-z0-9'’\-]*)*/g;
-const lat=s=>(s.match(/[A-Za-z]/g)||[]).length,bn=s=>(s.match(/[\u0980-\u09FF]/g)||[]).length;
+const lat=s=>(s.match(/[A-Za-z\u0900-\u0963\u0966-\u097F]/g)||[]).length,bn=s=>(s.match(/[\u0980-\u09FF]/g)||[]).length;
 const T=s=>[...new Set((s.match(RE)||[]).map(x=>x.trim()).filter(x=>x.length>1))].slice(0,80);
 async function termList(text){
  const ts=T(text);if(!ts.length)return'কোনো ইংরেজি শব্দ পাওয়া যায়নি।';
