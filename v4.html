@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="bn"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover">
 <title>বাংলা বই পাঠক V4</title>
 <link rel="manifest" href="manifest4.json"><meta name="theme-color" content="#b4561f"><link rel="apple-touch-icon" href="icon4-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@400;600&family=Noto+Sans+Bengali:wght@400;600&display=swap" rel="stylesheet">
@@ -32,7 +32,7 @@ label.b{position:relative;overflow:hidden}
 .t{border-bottom:1px dotted var(--ac)}.e,.x{color:var(--ac)}.t,.e,.x,.k,.f{cursor:pointer}.bnonly .blk.done .o{display:none}.bnonly .blk.done.show .o{display:block;opacity:.7;font-size:.9em}.ob{display:none;font-size:.7em;border:1px solid var(--ac);color:var(--ac);border-radius:8px;padding:0 7px;margin-left:6px;cursor:pointer;font-family:system-ui,sans-serif}.bnonly .ob{display:inline}#tip .tipb{margin-top:6px;font-size:13px;padding:3px 10px;background:var(--bg);color:var(--fg);border:0;border-radius:8px}#tip{position:fixed;display:none;background:var(--fg);color:var(--bg);padding:6px 11px;border-radius:10px;font-size:15px;line-height:1.5;z-index:10;max-width:80vw;white-space:pre-line;font-family:system-ui,'Noto Serif Bengali',sans-serif;box-shadow:0 4px 14px #0004}.tr.ai::before{content:'✨ ';font-size:.8em}.pin{font-size:.72em;background:var(--ac);color:#fff;border-radius:8px;padding:1px 7px;margin-left:4px;white-space:nowrap;font-family:system-ui,sans-serif}.e{border-bottom:1px dashed var(--ac)}.k{color:var(--ac);font-weight:600}.f{color:var(--ac)}
 #gt,.gi{width:100%;font:inherit;font-size:16px;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:8px;margin:8px 0}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:20px;font-size:14px;z-index:9;display:none}
-@media(min-width:760px){#view.auto{max-width:1100px}.auto .blk{display:grid;grid-template-columns:1fr 1fr;gap:22px}.bnonly.auto .blk.done{display:block}}
+@media(min-width:760px){#view.auto{max-width:1100px}.auto .blk{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}.bnonly.auto .blk.done{display:block}}
 :root[data-theme="sepia"]{--bg:#f4ecd8;--fg:#3b2f1e;--mut:#8a7a5c;--card:#fbf5e6;--ac:#9a4a14;--bd:#e0d3b4}
 ::highlight(hl-yellow){background-color:rgba(255,214,0,.45)}::highlight(hl-green){background-color:rgba(76,175,80,.4)}::highlight(hl-pink){background-color:rgba(255,105,180,.4)}::highlight(hl-blue){background-color:rgba(66,165,245,.4)}
 .pm{font-size:.7em;border:1px solid var(--mut);color:var(--mut);border-radius:8px;padding:0 7px;margin-left:6px;cursor:pointer;font-family:system-ui,sans-serif;display:inline}
@@ -41,6 +41,8 @@ label.b{position:relative;overflow:hidden}
 .blk[data-vf="1"] .tr,.blk[data-vf="1"] .il .ilr{border-left-color:#2f8f5b}
 .blk.flash{background:rgba(255,214,0,.25)}.blk.speak{background:rgba(255,214,0,.18)}
 #ttsb{position:fixed;left:8px;right:8px;bottom:calc(66px + env(safe-area-inset-bottom,0px));background:var(--card);border:1px solid var(--ac);border-radius:12px;padding:6px 10px;display:none;align-items:center;gap:8px;z-index:8;flex-wrap:wrap}
+#view{overflow-x:hidden}#view .blk,#view .o,#view .tr,#view p,#view .pgc,#view .note,#view .os{min-width:0;max-width:100%;overflow-wrap:anywhere}#view img,#view pre,#view table{max-width:100%}
+header,#bar{transition:transform .22s ease}body.hb header{transform:translateY(calc(-100% - env(safe-area-inset-top,0px)))}body.hb #bar{transform:translateY(130%)}
 </style></head><body>
 <header>
  <label class="b p">📂<input id="file" type="file"></label><button id="bLib">📚</button><button id="bWeb" class="p">🔗</button><button id="bPaste" class="p">📝</button>
@@ -52,10 +54,9 @@ label.b{position:relative;overflow:hidden}
 <div id="sheet"><div id="sh"><span>বন্ধ করতে ✕ চাপুন</span><button id="x">✕</button></div><div id="out"></div></div>
 <div id="bar">
  <button id="bAuto" class="p" disabled>⇄ অনুবাদ চালু</button>
- <button id="bTerm" disabled>🔤 শব্দ তালিকা</button>
- <button id="bGl">🧠 সেটিং</button>
+ <button id="bMix">💬🧠 GPT·সেটিং·আরও</button>
  <button id="bOff">⬇ অফলাইন</button>
- <button id="bGpt">💬 GPT</button>
+ <button id="bTerm" style="display:none" disabled>🔤 শব্দ তালিকা</button><button id="bGl" style="display:none">🧠 সেটিং</button><button id="bGpt" style="display:none">💬 GPT</button>
 </div><div id="selb"><button class="p" id="selbtn">💬 জিজ্ঞাসা</button><button id="seladd">➕ শব্দকোষ</button><button id="selhl">🖍</button></div><div id="toast"></div><div id="tip"></div>
 <script>/**
  * @licstart The following is the entire license notice for the
@@ -420,7 +421,7 @@ function showLib(){
 $('#bLib').onclick=showLib;
 function openWebBook(buf){
  const j=JSON.parse(new TextDecoder().decode(buf));
- return{n:j.pages.length,next:j.next||'',async toc(){return j.pages.map((p,i)=>({t:(p[0]||'').slice(0,60),i,l:0}))},async get(i){return j.pages[i]||[]}};
+ return{n:j.pages.length,next:j.next||'',links:j.links||[],imgs:j.imgs||[],async toc(){return j.pages.map((p,i)=>({t:(p[0]||'').slice(0,60),i,l:0}))},async get(i){return j.pages[i]||[]}};
 }
 const NXT=t=>t&&t.length<=40&&!/prev|previous|back|আগের|পূর্ববর্তী|पिछल|पिछला/i.test(t)&&(/^[«»‹›←→<>\s]*(?:next|পরের|পরবর্তী|अगला|अगली|अगले|आगे)(?![A-Za-z])/i.test(t)||/^[»›→]+$|^>>$/.test(t));
 function findNext(doc,base){
@@ -433,23 +434,52 @@ function findNext(doc,base){
  }
  return '';
 }
+const DEVn=t=>(String(t).match(/[\u0900-\u0963\u0966-\u097F]/g)||[]).length;
+const hiStale=(src,out)=>{const d=DEVn(src);if(!d||d<=(String(src).match(/[A-Za-z]/g)||[]).length)return false;const o=String(out||'').replace(/<[^>]*>/g,'');return DEVn(o)>(o.match(/[\u0980-\u09FF]/g)||[]).length};
+const codey=t=>t.length>80&&((t.match(/[{}\[\]();=<>$\\|]/g)||[]).length/t.length>0.1);
+const cleanTok=t=>t.replace(/\S*(?:%[0-9A-Fa-f]{2}){2,}\S*/g,'').replace(/[\x21-\x7E]{120,}/g,m=>m.slice(0,40)+'…').replace(/\s+/g,' ').trim();
+function collectMedia(doc,base){
+ let bu;try{bu=new URL(base)}catch(e){return{links:[],imgs:[]}}
+ const abs=h=>{try{const x=new URL(h,bu);return /^https?:$/.test(x.protocol)?x.href:''}catch(e){return ''}};
+ const links=[],sL=new Set(),imgs=[],sI=new Set(),self=bu.href.replace(/#.*$/,'');
+ doc.querySelectorAll('a[href]').forEach(a=>{
+  const h=a.getAttribute('href');if(!h||/^(#|javascript:|mailto:|tel:)/i.test(h))return;
+  const u=abs(h).replace(/#.*$/,'');if(!u||u===self||sL.has(u))return;
+  const im=a.querySelector('img'),t=((a.textContent||'').replace(/\s+/g,' ').trim())||a.getAttribute('title')||a.getAttribute('aria-label')||(im&&im.getAttribute('alt'))||'';
+  if(t.length<2)return;sL.add(u);links.push([t.slice(0,90),u]);
+ });
+ doc.querySelectorAll('img').forEach(im=>{
+  let s=im.getAttribute('data-src')||im.getAttribute('data-original')||im.getAttribute('src')||'';
+  if(!s){const ss=im.getAttribute('srcset')||'';s=ss.split(',')[0].trim().split(/\s+/)[0]}
+  if(!s||/^data:/i.test(s))return;const u=abs(s);if(!u||sI.has(u))return;
+  const w=+im.getAttribute('width')||0,hh=+im.getAttribute('height')||0;if((w&&w<60)||(hh&&hh<60))return;
+  if(/pixel|spacer|blank|1x1|sprite|avatar|favicon/i.test(u))return;
+  sI.add(u);imgs.push([u,(im.getAttribute('alt')||'').slice(0,80)]);
+ });
+ return{links:links.slice(0,150),imgs:imgs.slice(0,80)};
+}
 function webParas(h,base){
  const doc=new DOMParser().parseFromString(h,'text/html');
  let next='';try{next=base?findNext(doc,base):''}catch(e){}
+ let media={links:[],imgs:[]};try{if(base)media=collectMedia(doc,base)}catch(e){}
  doc.querySelectorAll('script,style,noscript,nav,footer,aside,form,svg,iframe,button,select,[hidden],[aria-hidden="true"]').forEach(n=>n.remove());
  const root=doc.querySelector('article')||doc.querySelector('main')||doc.body;
  const Q='h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,figcaption,td';
- const a=[...root.querySelectorAll(Q)].filter(e=>!e.querySelector(Q)).map(e=>e.textContent.replace(/\s+/g,' ').trim()).filter(t=>t.length>1);
+ const a=[...root.querySelectorAll(Q)].filter(e=>!e.querySelector(Q)).map(e=>cleanTok(e.textContent.replace(/\s+/g,' ').trim())).filter(t=>t.length>1&&!codey(t));
  const out=[];a.forEach(t=>{if(out[out.length-1]!==t)out.push(t)});
- return{title:(doc.title||'').trim(),paras:out,next};
+ return{title:(doc.title||'').trim(),paras:out.map(cleanTok).filter(t=>t.length>1&&!codey(t)),next,links:media.links,imgs:media.imgs};
 }
 function mdParas(m,base){
  let next='';
- try{const bh=new URL(base).hostname,re=/\[([^\]]{1,40})\]\((https?:\/\/[^)\s]+)\)/g;let q;while((q=re.exec(m))){if(NXT(q[1].trim())){const x=new URL(q[2]);if(x.hostname===bh&&x.href!==base){next=x.href;break}}}}catch(e){}
- let title='';const t=m.match(/^Title:\s*(.+)$/m);if(t)title=t[1].trim();
- const i=m.indexOf('Markdown Content:');if(i>=0)m=m.slice(i+17);
- const out=m.split(/\n\s*\n/).map(x=>x.replace(/!\[[^\]]*\]\([^)]*\)/g,'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/^[#>*\-\s\d.]+/,'').replace(/[*_`]/g,'').replace(/\s+/g,' ').trim()).filter(x=>x.length>1);
- return{title,paras:out,next};
+ const IMG=/!\[([^\]]*)\]\(((?:[^()\s]|\([^()]*\))+)(?:\s+"[^"]*")?\)/g,LNK=/\[([^\]]{0,120})\]\(((?:[^()\s]|\([^()]*\))+)(?:\s+"[^"]*")?\)/g;
+ const links=[],imgs=[],sL=new Set(),sI=new Set();let bh='';try{bh=new URL(base).hostname}catch(e){}
+ let q,title='';const t0=m.match(/^Title:\s*(.+)$/m);if(t0)title=t0[1].trim();
+ const i0=m.indexOf('Markdown Content:');if(i0>=0)m=m.slice(i0+17);
+ while((q=IMG.exec(m))){try{const u=new URL(q[2],base).href;if(/^https?:/.test(u)&&!sI.has(u)&&!/pixel|spacer|1x1|sprite/i.test(u)){sI.add(u);imgs.push([u,q[1].slice(0,80)])}}catch(e){}}
+ m=m.replace(IMG,'');
+ while((q=LNK.exec(m))){try{const x=new URL(q[2],base);if(!/^https?:$/.test(x.protocol))continue;x.hash='';const u=x.href,t=q[1].replace(/\s+/g,' ').trim();if(!next&&bh&&NXT(t)&&x.hostname===bh&&u!==base)next=u;if(!sL.has(u)&&u!==base&&t.length>1){sL.add(u);links.push([t.slice(0,90),u])}}catch(e){}}
+ const out=m.split(/\n\s*\n/).map(x=>cleanTok(x.replace(LNK,'$1').replace(/https?:\/\/\S+/g,'').replace(/^[#>*\-\s\d.]+/,'').replace(/[*_`]/g,'').replace(/\s+/g,' ').trim())).filter(x=>x.length>1&&!codey(x));
+ return{title,paras:out,next,links:links.slice(0,150),imgs:imgs.slice(0,80)};
 }
 async function getWeb(u){
  const px=[x=>'https://api.allorigins.win/raw?url='+encodeURIComponent(x),x=>'https://corsproxy.io/?url='+encodeURIComponent(x)];
@@ -477,7 +507,7 @@ function splitText(t,max){
  }
  push();return out;
 }
-function webFinish(u,title,host,paras,per,next){
+function webFinish(u,title,host,paras,per,next,media){
  lastWebUrl=u||'';
  paras=paras.flatMap(p=>p.length>900?splitText(p,650):[p]);
  per=Math.min(per||2200,2200);
@@ -485,7 +515,7 @@ function webFinish(u,title,host,paras,per,next){
  paras.forEach(p=>{cur.push(p);n+=p.length;if(n>(per||2200)){pages.push(cur);cur=[];n=0}});
  if(cur.length)pages.push(cur);
  const name='web:'+(title||host).slice(0,60)+' ('+host+')';
- const buf=new TextEncoder().encode(JSON.stringify({url:u,pages,next:next||''})).buffer;
+ const buf=new TextEncoder().encode(JSON.stringify({url:u,pages,next:next||'',links:(media&&media.links)||[],imgs:(media&&media.imgs)||[]})).buffer;
  openBuf(name,buf.byteLength,buf,true);
 }
 const ytId=u=>{const m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/|v\/))([\w-]{11})/i);return m?m[1]:null};
@@ -611,7 +641,7 @@ async function openWeb(u){
   }}
  if(!w)w=await getWeb(u);
  if(!w){view.innerHTML='<div class="hello">এই সাইট থেকে লেখা আনা যায়নি (সাইটটি আটকে দিয়েছে বা ইন্টারনেট নেই)। অন্য লিংক চেষ্টা করুন।</div>';return}
- webFinish(u,w.title,host+tag,w.paras,undefined,w.next);
+ webFinish(u,w.title,host+tag,w.paras,undefined,w.next,w);
 }
 function pasteParas(t){
  t=t.replace(/\r/g,'');
@@ -1070,7 +1100,7 @@ function chatPromptClean(idx,tplOverride){
   COUNT:String(src.length),
   STYLE:(reg==='wb'?'Bangla (West Bengal, Kolkata style)':'standard Bangla')+(sty==='m'?MODERN_ST:''),
   SUBJECT:(gtp?' The book is about: '+gtp+'.':'')+(bookCtx.profile?' Book profile: '+bookCtx.profile:''),
-  CUSTOM:cs?' '+cs:'',
+  CUSTOM:(cs?' '+cs:'')+(hasHi(src)?' '+HI_NOTE:''),
   NOEN:noEn?' Technical terms: Bangla script with the English in brackets on first use.':'',
   TERMS_MAP:map.length?'Use these fixed translations exactly: '+map.join('; ')+'.':'',
   TERMS_KEEP:keep.length?'Keep these terms in English exactly as written: '+keep.join(', ')+'.':'',
@@ -1237,6 +1267,8 @@ function termTable(){
  gl.filter(g=>!g.bk||g.bk===key).forEach(g=>g.bn?map.push(g.en+' = '+g.bn):keep.push(g.en));
  return{keep:[...new Set(keep)].slice(0,150),map:[...new Set(map)].slice(0,150)};
 }
+const HI_NOTE='The source text is Hindi (Devanagari script). Translate it faithfully into Bangla. Write Sanskrit/Pali/Tibetan Buddhist terms in Bangla script in their normal Bangla form (e.g. बोधिचित्त → বোধিচিত্ত, शून्यता → শূন্যতা); never respell them in English letters unless the source itself contains English.';
+const hasHi=a=>a.some(t=>/[\u0900-\u0963\u0966-\u097F]/.test(String(t)));
 function gprompt(list){
  const T=termTable();
  return 'You are an expert human translator producing Bangla (Bengali) for a serious reader who is STUDYING this book and wants the author\'s exact ideas.\n'
@@ -1249,6 +1281,7 @@ function gprompt(list){
   ?'4. THE READER DOES NOT KNOW ENGLISH AT ALL, so never leave a bare English word. For every technical/subject term: use a good Bangla word when one exists with the exact meaning; otherwise write the term in Bangla script (transliteration), e.g. অর্ডার ব্লক, and on its FIRST occurrence in this input add the original English in brackets, e.g. তরলতা (liquidity), অর্ডার ব্লক (order block), এপিআই (API); where useful add a very short Bangla explanation once. Use the same Bangla form every time. Names of people/places/brands: Bangla script, English in brackets once.\n'
   :'4. Technical/subject terms: be consistent everywhere. (a) Keep in English letters any term whose Bangla would blur or change the meaning; on its first occurrence in this input add the Bangla meaning in brackets, e.g. liquidity (তরলতা), then use the English alone. (b) Use plain Bangla for ordinary words and terms with a standard exact Bangla equivalent. (c) Always keep acronyms, names, brands, code, formulas and numbers as they are.\n')
  +'5. If a paragraph is already Bangla, keep its wording and only fix English words/terms inside it by rule 4. Keep headings short and list formatting.\n'
+ +(hasHi(list)?'6. '+HI_NOTE+'\n':'')
  +(list.some(t=>String(t).includes('⟦G'))?'PROTECTED GLOSSARY TOKENS such as ⟦G0⟧ stand for fixed terms chosen by the reader. Copy every token EXACTLY as written (with its brackets) into the right place in your Bangla text. Never translate, change, drop, explain or duplicate a token; you may attach normal Bangla suffixes right after it.\n':'')
  +(T.keep.length?(noEn?'HARD TERMS (write in Bangla script, English in brackets on first use): ':'ALWAYS KEEP IN ENGLISH: ')+T.keep.join(', ')+'\n':'')
  +(T.map.length?'ALWAYS USE THESE TRANSLATIONS: '+T.map.join('; ')+'\n':'')
@@ -1303,7 +1336,7 @@ const pk=t=>'gp:'+hk(t+'|'+gver+'|'+gtp+reg+(noEn?1:0)+'|'+hk(cust)+(sty==='m'?'
 async function gemTr(list,max){
  max=max||3500;
  const out=new Array(list.length).fill(null),miss=[];
- for(let k=0;k<list.length;k++){const c=await pget(pk(list[k]));if(c!=null)out[k]=c;else miss.push(k)}
+ for(let k=0;k<list.length;k++){const c=await pget(pk(list[k]));if(c!=null&&!hiStale(list[k],c))out[k]=c;else miss.push(k)}
  let i=0;
  while(i<miss.length){
   const idx=[];let n=0;
@@ -1311,7 +1344,7 @@ async function gemTr(list,max){
   const pr=idx.map(k=>protect(list[k],'ai'));
   const raw=await callBatch(pr.map(x=>x.t),idx.map(k=>list[k]));
   const res=raw.map((t,j)=>t==null?null:restoreAI(t,pr[j].toks));
-  idx.forEach((k,j)=>{if(res[j]!=null){out[k]=res[j];pset(pk(list[k]),res[j])}});
+  idx.forEach((k,j)=>{if(res[j]!=null&&!hiStale(list[k],res[j])){out[k]=res[j];pset(pk(list[k]),res[j])}});
  }
  const g=out.filter(x=>x!=null);if(g.length)gPrev=g.slice(-2).join('\n').slice(-700);
  return out;
@@ -1429,7 +1462,7 @@ async function translateAll0(){
  let blks=[...view.querySelectorAll('.blk')];
  for(const b of blks){b.querySelector('.tr').textContent='';b.querySelector('.tr').classList.remove('ai');b.querySelectorAll('.il').forEach(n=>n.remove());b.classList.remove('done','show','il-has');b.dataset.noau='';b.dataset.au=''}
  if(await applyPageLock(blks)){lastAiFor={key,pos};setSt('🔒 পাতা লক করা: নতুন অনুবাদ হয়নি (ডেটা ও কোটা বাঁচল)');showTally();aheadPump();setTimeout(syncPage,800);return}
- {const rest=[];for(const b of blks){const tx=b.querySelector('.o').textContent,lk=await pget('lk:'+hk(tx));if(lk&&lk.t){const d=b.querySelector('.tr');d.textContent=lk.t;fin(d,b)}else{const m=await pget(MP()+hk(tx));if(m!=null){const d=b.querySelector('.tr');d.textContent=m;d.classList.add('ai');fin(d,b)}else{const au=await pget('au:'+hk(tx));if(au&&au.h!=null&&!/MYMEMORY WARNING/i.test(au.h)&&(au.gv===gver||!termHits(tx).length)){const d=b.querySelector('.tr');d.innerHTML=au.h;d.classList.toggle('ai',!!au.ai);b.dataset.au='1';fin(d,b)}else rest.push(b)}}}blks=rest}
+ {const rest=[];for(const b of blks){const tx=b.querySelector('.o').textContent,lk=await pget('lk:'+hk(tx));if(lk&&lk.t){const d=b.querySelector('.tr');d.textContent=lk.t;fin(d,b)}else{const m=await pget(MP()+hk(tx));if(m!=null){const d=b.querySelector('.tr');d.textContent=m;d.classList.add('ai');fin(d,b)}else{const au=await pget('au:'+hk(tx));if(au&&au.h!=null&&!/MYMEMORY WARNING/i.test(au.h)&&!hiStale(tx,au.h)&&(au.gv===gver||!termHits(tx).length)){const d=b.querySelector('.tr');d.innerHTML=au.h;d.classList.toggle('ai',!!au.ai);b.dataset.au='1';fin(d,b)}else rest.push(b)}}}blks=rest}
  if(llmOn()&&!HYB()){
   const nm=provName();setSt('⏳ AI অনুবাদ হচ্ছে ('+nm+')…');
   try{await gemAll(blks,my);if(my===tok){lastAiFor={key,pos};setSt('✓ AI অনুবাদ ('+(usedFb?provName():nm)+')');showTally();aheadPump();setTimeout(syncPage,800)}return}
@@ -1517,7 +1550,7 @@ function chatPrompt(idx){
  });
  chatFlat=flat;
  if(ls.get('gshort')!=='0'){
-  return 'Translate these book paragraphs into Bangla ('+(reg==='wb'?'West Bengal, Kolkata style':'standard')+'), faithful to the meaning, fluent and natural.'+(sty==='m'?MODERN_S:'')+((ls.get('custs')===null?DEF_CUSTS:ls.get('custs')).trim()?' '+(ls.get('custs')===null?DEF_CUSTS:ls.get('custs')).trim():'')+(noEn?' Technical terms: Bangla script with the English in brackets on first use.':'')+(flat.length?' Tokens like ⟦G0⟧ are fixed terms: copy them exactly as written.':'')+' Reply with only the translations, each starting with its marker exactly as given (e.g. [12]). After the last paragraph add a line "TERMS:" then up to 10 key technical terms from this text, one per line as "english = Bangla word you used (or KEEP_EN)"'+(bookCtx.profile?'':' and a final line "PROFILE:" with 2 sentences on the book\'s subject and tone')+'.\n\n'+idx.map((k,j)=>'['+(k+1)+'] '+pr[j].t).join('\n\n');
+  return 'Translate these book paragraphs into Bangla ('+(reg==='wb'?'West Bengal, Kolkata style':'standard')+'), faithful to the meaning, fluent and natural.'+(sty==='m'?MODERN_S:'')+(hasHi(idx.map(k=>paras[k]))?' '+HI_NOTE:'')+((ls.get('custs')===null?DEF_CUSTS:ls.get('custs')).trim()?' '+(ls.get('custs')===null?DEF_CUSTS:ls.get('custs')).trim():'')+(noEn?' Technical terms: Bangla script with the English in brackets on first use.':'')+(flat.length?' Tokens like ⟦G0⟧ are fixed terms: copy them exactly as written.':'')+' Reply with only the translations, each starting with its marker exactly as given (e.g. [12]). After the last paragraph add a line "TERMS:" then up to 10 key technical terms from this text, one per line as "english = Bangla word you used (or KEEP_EN)"'+(bookCtx.profile?'':' and a final line "PROFILE:" with 2 sentences on the book\'s subject and tone')+'.\n\n'+idx.map((k,j)=>'['+(k+1)+'] '+pr[j].t).join('\n\n');
  }
  const g=gprompt(pr.map(x=>x.t));
  const head=g.slice(0,g.indexOf('\nOUTPUT:'));
@@ -2530,8 +2563,8 @@ async function aheadPump(){
   setAh('⏩ আগে থেকে তৈরি হচ্ছে: পাতা '+(p+1)+' (পরের '+N+' পাতার মধ্যে)');
   let ps=[];try{ps=await book.get(p)}catch(e){}
   if(my!==aheadTok)return;
-   const lockedK=new Set();for(let k=0;k<ps.length;k++){const a=await pget('au:'+hk(ps[k]));if(a&&a.h!=null)lockedK.add(k)}
-   const hs=await pool(ps,async q=>{const a=await pget('au:'+hk(q));if(a&&a.h!=null)return a.h;return trPara(q,new Set()).catch(()=>'')},2);
+   const lockedK=new Set();for(let k=0;k<ps.length;k++){const a=await pget('au:'+hk(ps[k]));if(a&&a.h!=null&&!hiStale(ps[k],a.h))lockedK.add(k)}
+   const hs=await pool(ps,async q=>{const a=await pget('au:'+hk(q));if(a&&a.h!=null&&!hiStale(q,a.h))return a.h;return trPara(q,new Set()).catch(()=>'')},2);
    if(my!==aheadTok)return;
    const wantAI=new Set();
    if(RS.aheadAI!==false&&llmOn()&&ps.length){
@@ -2691,7 +2724,7 @@ async function applyPageLock(blks){
  if(!L||!Array.isArray(L.p)||L.p.length!==blks.length)return false;
  if(L.auto&&L.gv!==gver)return false;
  if(L.h.some(x=>/MYMEMORY WARNING/i.test(String(x))))return false;
- for(let i=0;i<blks.length;i++)if(hk(blks[i].querySelector('.o').textContent)!==L.p[i])return false;
+ for(let i=0;i<blks.length;i++)if(hk(blks[i].querySelector('.o').textContent)!==L.p[i]||hiStale(blks[i].querySelector('.o').textContent,L.h[i]))return false;
  blks.forEach((b,i)=>{const d=b.querySelector('.tr');d.innerHTML=L.h[i];d.classList.toggle('ai',!!L.ai[i]);fin(d,b)});
  return true;
 }
@@ -2710,7 +2743,7 @@ async function autoLockAhead(k0,p,ps,hs){
   const q=ps[i],hh=hk(q);P.push(hh);
   const lk=await pget('lk:'+hh);if(lk&&lk.t){H.push(esc(lk.t));A.push(false);continue}
   const mp=await pget(MP()+hh);if(mp!=null){H.push(esc(mp));A.push(true);continue}
-   const au=await pget('au:'+hh);if(au&&au.h!=null){H.push(au.h);A.push(!!au.ai);continue}
+   const au=await pget('au:'+hh);if(au&&au.h!=null&&!hiStale(q,au.h)){H.push(au.h);A.push(!!au.ai);continue}
   const a=await pget(pk(q));if(a!=null){H.push(esc(a));A.push(true);continue}
   H.push(hs[i]);A.push(false);
  }
@@ -2730,7 +2763,7 @@ async function lockRange(from,to,prog){
     const hh=hk(q);p.push(hh);
     const lk=await pget('lk:'+hh);if(lk&&lk.t){h.push(esc(lk.t));ai.push(false);continue}
     const mp=await pget(MP()+hh);if(mp!=null){h.push(esc(mp));ai.push(true);continue}
-     const au=await pget('au:'+hh);if(au&&au.h!=null){h.push(au.h);ai.push(!!au.ai);continue}
+     const au=await pget('au:'+hh);if(au&&au.h!=null&&!hiStale(q,au.h)){h.push(au.h);ai.push(!!au.ai);continue}
     const a=await pget(pk(q));if(a!=null){h.push(esc(a));ai.push(true);continue}
     const g=await trPara(q,new Set());
     if(noNetHits>0||!g){bad=true;break}
@@ -2978,6 +3011,37 @@ function showWiz(n){
  if($('#wzb'))$('#wzb').onclick=()=>{wzSave(n);showWiz(n-1)};
  $('#wzs').onclick=()=>{ls.set('wzdone','1');sheet.style.display='none'};
 }
+function showMedia(){
+ if(!book||!Array.isArray(book.links)){toast('এটা ওয়েব লেখা নয়');return}
+ const L=book.links,I=book.imgs||[];
+ if(!L.length&&!I.length){toast('এই লেখায় লিংক বা ছবি জমা নেই। লিংকটা 🔗 দিয়ে আবার খুললে জমা হবে',6000);return}
+ sheet.style.display='flex';
+ let h='<b>🔗 লেখার লিংক ও 🖼 ছবি</b>';
+ if(L.length)h+='<div style="margin-top:8px"><b>লিংক ('+L.length+')</b> <span style="font-size:12px">নাম চাপলে অ্যাপেই খুলবে, ↗ চাপলে ব্রাউজারে</span></div><div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;max-height:36vh;overflow:auto">'+L.map((x,i)=>'<div style="display:flex;gap:6px;align-items:center"><button class="mo" data-i="'+i+'" style="flex:1;min-width:0;text-align:left;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x[0])+'</button><button class="mx" data-j="'+i+'">↗</button></div>').join('')+'</div>';
+ if(I.length)h+='<div style="margin-top:10px"><b>ছবি ('+I.length+')</b> <span style="font-size:12px">ছবিতে চাপলে বড় করে খুলবে</span></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px;max-height:36vh;overflow:auto">'+I.map((x,i)=>'<img data-k="'+i+'" loading="lazy" referrerpolicy="no-referrer" alt="'+esc(x[1])+'" src="'+esc(x[0])+'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#222">').join('')+'</div>';
+ out.innerHTML=h;
+ out.querySelectorAll('.mo').forEach(b=>b.onclick=()=>{const u=L[+b.dataset.i][1];sheet.style.display='none';openWeb(u)});
+ out.querySelectorAll('.mx').forEach(b=>b.onclick=()=>window.open(L[+b.dataset.j][1],'_blank','noopener'));
+ out.querySelectorAll('img').forEach(im=>im.onclick=()=>window.open(I[+im.dataset.k][0],'_blank','noopener'));
+}
+$('#bMix').onclick=()=>{
+ sheet.style.display='flex';
+ out.innerHTML='<b>💬 GPT · 🧠 সেটিং · আরও</b><div style="margin-top:8px;display:flex;flex-direction:column;gap:8px"><button class="p" id="mxg">💬 ChatGPT-তে পাঠান (এই পাতার অংশ)</button><button id="mxs">🧠 সেটিং</button><button id="mxt">🔤 শব্দ তালিকা</button><button id="mxm">🔗🖼 লেখার লিংক ও ছবি</button></div>';
+ $('#mxg').onclick=()=>{sheet.style.display='none';$('#bGpt').click()};
+ $('#mxs').onclick=()=>{sheet.style.display='none';$('#bGl').click()};
+ $('#mxt').onclick=()=>{sheet.style.display='none';if($('#bTerm').disabled){toast('আগে একটা বই খুলুন');return}$('#bTerm').click()};
+ $('#mxm').onclick=showMedia;
+};
+(()=>{
+ let ly=scrollY,ac=0;const B=document.body;
+ addEventListener('scroll',()=>{
+  const y=scrollY,d=y-ly;ly=y;
+  if(getComputedStyle(sheet).display!=='none'||y<60){B.classList.remove('hb');ac=0;return}
+  ac=(Math.sign(d)===Math.sign(ac)?ac+d:d);
+  if(ac>45)B.classList.add('hb');else if(ac<-25)B.classList.remove('hb');
+ },{passive:true});
+ new MutationObserver(()=>{if(sheet.style.display!=='none')B.classList.remove('hb')}).observe(sheet,{attributes:true,attributeFilter:['style']});
+})();
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw4.js',{scope:'./'}).catch(()=>{});
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 (async()=>{if(/[?&]shared=1/.test(location.search)){await handleShared();return}try{const e=lib().find(x=>x.k===ls.get('last'));if(e){const b=await getSaved(e);if(b){openBuf(e.name,e.size,b,false);return}}}catch(_){}showLib()})();applyRS();
